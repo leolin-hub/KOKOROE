@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: kokoroe-backend
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kokoroe}
+    username: ${DB_USER:kokoroe}
+    password: ${DB_PASSWORD:kokoroe}
+
+  jpa:
+    # schema 由 Flyway 管理，Hibernate 只負責「校驗對不對得起來」，絕不自己改結構。
+    # 這是 production 的正確設定；用 update 會讓 schema 變更失去版本控管與 review。
+    hibernate:
+      ddl-auto: validate
+    # 關掉 OSIV：避免 Session 一路開到 View 層，掩蓋 N+1 並長時間佔用連線。
+    open-in-view: false
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+  jackson:
+    default-property-inclusion: non_null
+    deserialization:
+      fail-on-unknown-properties: true
+
+  data:
+    web:
+      pageable:
+        default-page-size: 20
+        # 上限，避免 ?size=999999 變成變相的全表撈取
+        max-page-size: 100
+
+server:
+  port: 8080
+  error:
+    # 不要把 stack trace 洩漏給 client
+    include-stacktrace: never
+    include-message: never
+
+logging:
+  level:
+    com.kokoroe: debug

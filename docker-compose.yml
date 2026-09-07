@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kokoroe-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-kokoroe}
+      POSTGRES_USER: ${POSTGRES_USER:-kokoroe}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-kokoroe}
+      # 讓容器初始化時就使用 UTC，避免本機時區影響 timestamp 行為
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - kokoroe-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # 明確帶上 -U/-d，否則 pg_isready 會用容器內的預設使用者而誤判
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-kokoroe} -d ${POSTGRES_DB:-kokoroe}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  kokoroe-pgdata:
+    name: kokoroe-pgdata
