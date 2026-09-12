@@ -1,0 +1,79 @@
+name: CI
+
+# PR 一律檢查,併入 main 後再跑一次。
+#
+# 刻意「不」加 paths 過濾(例如只在 backend/** 改動時跑 backend job)。
+# 原因:paths 是 workflow 層級的設定,被過濾掉時整個 workflow 不會啟動,
+# 於是 ruleset 裡設為必過的 status check 會永遠停在 pending —— PR 就再也併不進去。
+# 這個坑很常見。等 CI 真的慢到有感再處理,現在兩個 job 加起來也就幾分鐘。
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# 最小權限。兩個 job 都只需要讀 repo,不需要寫任何東西。
+permissions:
+  contents: read
+
+# 同一個分支連續 push 時,取消還在跑的舊 run。
+# 省 runner 時間,也讓 PR 上只留下最新一次的結果。
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          # 內建的 ~/.m2 快取,依 pom.xml 的雜湊值判斷是否失效。
+          cache: maven
+
+      # 整合測試用 Testcontainers 起一個真的 PostgreSQL 16。
+      # ubuntu-latest runner 內建 Docker,所以不需要額外的 service container ——
+      # 讓 Testcontainers 自己管容器生命週期,與本機執行的行為才一致。
+      - name: Run tests
+        run: ./mvnw --batch-mode --no-transfer-progress test
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          # working-directory 不影響這個路徑,要從 repo 根目錄算起。
+          cache-dependency-path: frontend/package-lock.json
+
+      # 用 ci 而非 install:嚴格依照 package-lock.json 安裝,
+      # 且 lock 與 package.json 不一致時直接失敗。
+      # CI 要的是「重現」,不是「解析出一組可行的版本」。
+      - name: Install dependencies
+        run: npm ci
+
+      # oxlint 先跑,它快得多,壞了可以早點知道。
+      - name: Lint
+        run: npm run lint
+
+      # build 會先跑 tsc -b 再 vite build。
+      # 這一步是這個 job 存在的主要理由 —— npm run dev 不做型別檢查,
+      # 所以型別錯誤在本機開發時完全沒有回饋,只有這裡會擋下來。
+      - name: Type-check and build
+        run: npm run build

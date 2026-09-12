@@ -1,0 +1,50 @@
+version: 2
+
+# 這個專案跑在相當新的版本上(Spring Boot 4.0.x、Vite 8、React 19),
+# 修補更新的節奏會比成熟版本快,值得讓 Dependabot 幫忙盯。
+#
+# 全部設為 weekly 而非 daily:每天一批 PR 的下場就是學會無視它們。
+# 用 groups 把 minor/patch 收成一支 PR,進一步壓低噪音 ——
+# 真正需要逐支審的是 major,那才是會壞相容性的。
+updates:
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      backend-minor-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      frontend-minor-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  # workflow 裡釘的 actions/checkout@v4 之類也會過期。
+  # 這個 ecosystem 的 directory 必須是 /,它只看 .github/workflows。
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions:
+        patterns: ['*']
