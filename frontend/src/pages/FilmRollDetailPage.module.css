@@ -1,0 +1,73 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.back {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  align-self: flex-start;
+}
+
+.back:hover {
+  color: var(--color-accent);
+}
+
+/*
+ * TODO(你來寫)：詳情頁的樣式。
+ */
+
+/* 標題列：底片名稱 + StatusBadge，兩端對齊。 */
+.header {
+}
+
+.title {
+}
+
+/* 欄位清單。建議用 <dl>，語意上就是「名稱 → 值」的對應。
+   grid-template-columns: max-content 1fr 會讓標籤欄自動對齊。 */
+.fields {
+}
+
+.fieldLabel {
+}
+
+.fieldValue {
+}
+
+/* 推進狀態的按鈕列。 */
+.actions {
+}
+
+/* 危險操作（刪除）。用 --color-danger，且視覺上與其他按鈕分開，
+   避免手滑。建議靠右或隔一條分隔線。 */
+.dangerZone {
+}
+
+/* 建立/更新時間的小字，放最底下。 */
+.meta {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* 骨架提示框，實作完可刪。 */
+.placeholder {
+  padding: var(--space-6);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.placeholder p {
+  margin: var(--space-2) 0;
+}
+
+.placeholder code {
+  padding: 0.1em 0.4em;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  color: var(--color-accent);
+  font-size: 0.875em;
+}

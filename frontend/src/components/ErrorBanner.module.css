@@ -1,0 +1,24 @@
+/*
+ * TODO(你來寫)。
+ *
+ * 建議方向：左邊一條 3px 的 --color-danger 邊框 + 淡紅底色，
+ * 而不是整塊實色紅 —— 後者在深色介面上很刺眼，
+ * 而且會讓「可以恢復的錯誤」看起來像系統崩潰。
+ *
+ *   background-color: color-mix(in srgb, var(--color-danger) 12%, transparent);
+ *   border-left: 3px solid var(--color-danger);
+ */
+
+.banner {
+}
+
+.message {
+}
+
+/* 重試按鈕。視覺上要比錯誤訊息低調 —— 訊息是主角。 */
+.retry {
+}
+
+/* 只在開發模式顯示的 problem type。等寬字、極小、--color-text-muted。 */
+.debugType {
+}

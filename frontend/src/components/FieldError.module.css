@@ -1,0 +1,13 @@
+/*
+ * TODO(你來寫)：
+ *
+ * 建議：
+ *   color: var(--color-danger);
+ *   font-size: 0.8125rem;
+ *   margin: var(--space-1) 0 0;
+ *
+ * 並考慮在 ::before 放一個 ⚠ 符號 ——
+ * 讓錯誤不只靠顏色傳達（見 .tsx 裡的說明）。
+ */
+.error {
+}

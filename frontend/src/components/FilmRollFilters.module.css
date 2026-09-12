@@ -1,0 +1,34 @@
+.filters {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+/*
+ * TODO(你來寫)。
+ */
+
+/* 狀態按鈕的容器。建議 display: flex + gap，小螢幕允許換行。 */
+.statusGroup {
+}
+
+/*
+ * 單一狀態按鈕。
+ *
+ * 重點：目前選中的狀態要用 .statusButtonActive 區分，
+ * 而且**不要只靠背景色**。建議同時改文字顏色或加邊框 ——
+ * 深色介面上的淡色底差異在某些螢幕上幾乎看不出來。
+ *
+ * 記得配合 aria-pressed，讓螢幕閱讀器也知道哪個是選中的。
+ */
+.statusButton {
+}
+
+.statusButtonActive {
+}
+
+/* 排序下拉的容器（label + select）。 */
+.sortGroup {
+}
