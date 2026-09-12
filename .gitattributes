@@ -1,0 +1,25 @@
+# 換行處理。
+#
+# 沒有這個檔案的話,存進 repo 的換行取決於每個人本機的 core.autocrlf ——
+# 在 Windows 開發、在 Linux runner 上跑 CI 的專案,這是個定時炸彈:
+# shell script 一旦被存成 CRLF,Linux 會回報
+# `bad interpreter: /bin/sh^M`,而錯誤訊息完全沒提到換行。
+
+# 預設讓 git 自行判斷文字檔,並一律以 LF 存進 repo。
+* text=auto
+
+# 這幾種在 Linux 上會被當成程式執行,必須是 LF,沒有例外。
+*.sh   text eol=lf
+mvnw   text eol=lf
+
+# Windows 專用的批次檔反過來,必須是 CRLF。
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+
+# 二進位檔:不要做任何換行轉換,diff 也沒有意義。
+*.jar  binary
+*.png  binary
+*.jpg  binary
+*.ico  binary
+*.woff binary
+*.woff2 binary
