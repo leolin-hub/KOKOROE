@@ -1,0 +1,35 @@
+.badge {
+  display: inline-block;
+  padding: 0.15em 0.65em;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/*
+ * 四個狀態各一個 class。
+ *
+ * 這裡用「半透明底色 + 實色文字」而不是實色底：
+ * 實色底的彩色標籤在深色介面上會太搶眼，列表裡有十幾張卡片時很吵。
+ * color-mix 讓底色自動從狀態色推導，不用再手調四組暗色。
+ *
+ * TODO(你來寫)：填上 background-color 與 color。
+ * 建議的寫法（四個 class 都一樣，只有變數不同）：
+ *
+ *   color: var(--color-status-loaded);
+ *   background-color: color-mix(in srgb, var(--color-status-loaded) 15%, transparent);
+ */
+
+.loaded {
+}
+
+.shooting {
+}
+
+.developing {
+}
+
+.archived {
+}

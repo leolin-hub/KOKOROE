@@ -1,0 +1,83 @@
+/*
+ * TODO(你來寫)：表單樣式。
+ *
+ * .form 與 .field 已經給了基本骨架（這兩個沒什麼可學的），
+ * 其餘留給你。
+ */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background-color: var(--color-surface);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+/* 必填星號。用 --color-accent 或 --color-danger 都可以，挑一個就別換。 */
+.required {
+}
+
+/*
+ * 兩欄並排的列（例如 ISO 與 規格 放同一行）。
+ *
+ * 建議 display: grid + grid-template-columns: 1fr 1fr，
+ * 並在 @media (max-width: 600px) 時改成單欄 ——
+ * 手機上兩個並排的輸入框會太窄。
+ */
+.row {
+}
+
+/* 欄位下方的提示文字（例如「-3 ~ +3，正數為推感」）。
+   小字、--color-text-muted。與 FieldError 的紅字區分開。 */
+.hint {
+}
+
+/* notes 的 textarea。建議 min-height 搭配 resize: vertical
+   —— 允許使用者拉高，但不要讓他們拉寬破壞版面。 */
+.textarea {
+}
+
+/* 送出按鈕列。建議靠右，或在手機上撐滿寬度。 */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+/* 主要送出按鈕。 */
+.submit {
+}
+
+/* 取消／返回的次要按鈕。視覺權重要明顯低於 .submit。 */
+.cancel {
+}
+
+/*
+ * 有錯誤的輸入框。
+ *
+ * 建議不要另外加 class，而是直接用 attribute selector：
+ *
+ *   input[aria-invalid='true'],
+ *   select[aria-invalid='true'],
+ *   textarea[aria-invalid='true'] {
+ *     border-color: var(--color-danger);
+ *   }
+ *
+ * 好處是樣式與可存取性屬性綁在一起 ——
+ * 不可能出現「紅框但沒有 aria-invalid」或反過來的不一致。
+ * 這比多一個 .inputError class 更難寫錯。
+ */

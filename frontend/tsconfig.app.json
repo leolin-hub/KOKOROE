@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "esnext",
+    "types": ["vite/client"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    /*
+     * 這兩個在骨架階段刻意關掉。
+     *
+     * 骨架裡有大量「已經 import 好、但還沒用到」的東西 ——
+     * 那正是給你的線索：這一頁需要哪些工具，import 就已經列在最上面了。
+     * 開著這兩個檢查會讓 `npm run build` 被幾十個
+     * 「宣告了但沒使用」的錯誤淹沒，那些噪音會蓋掉真正的型別問題。
+     *
+     * ⚠️ 全部 TODO 填完之後，請把這兩個改回 true。
+     * 它們能抓到「重構後留下的死程式碼」，是很值得留著的檢查。
+     */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["src"]
+}

@@ -1,0 +1,22 @@
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+/*
+ * TODO(你來寫)。
+ */
+
+/* 上一頁 / 下一頁按鈕。
+   disabled 狀態由 index.css 的 button:disabled 統一處理（opacity + not-allowed），
+   所以這裡不用再寫一次。 */
+.button {
+}
+
+/* 「第 2 / 5 頁（共 87 卷）」的文字。
+   建議用 --color-text-muted，並考慮 font-variant-numeric: tabular-nums
+   —— 數字等寬，翻頁時文字寬度不會跳動。 */
+.info {
+}
