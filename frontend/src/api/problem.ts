@@ -67,33 +67,26 @@ export class ApiError extends Error {
 /**
  * 把 `ApiError` 的 `errors` 陣列轉成「欄位名 → 訊息」的物件，
  * 方便表單直接用 `fieldErrors.filmName` 取用。
- *
- * TODO(你來寫)：
- * 1. 若 `error` 不是 `ApiError`（可能是網路錯誤、TypeError），回空物件 `{}`。
- *    提示：`if (!(error instanceof ApiError)) return {}`
- * 2. 遍歷 `error.problem.errors`，累積成 `Record<string, string>`。
- *    可以用 `reduce`，或 `Object.fromEntries(errors.map(e => [e.field, e.message]))`。
- * 3. 想一下：同一個欄位可能有多個錯誤（例如 iso 同時違反 @Positive 與 @Max）嗎？
- *    若會，你要「留第一個」還是「後者覆蓋前者」？Object.fromEntries 是後者覆蓋。
- *    先選一個並在這裡註明你的決定。
- *
- * @param error unknown —— 刻意不收 `ApiError`，因為 catch 到的東西型別本來就是 unknown，
- *              把 narrowing 的責任收在這個函式裡，呼叫端才不用每次都判斷一次。
  */
 export function toFieldErrors(error: unknown): Record<string, string> {
-  throw new Error(`TODO: 實作 toFieldErrors（收到 ${typeof error}）`)
+  if (!(error instanceof ApiError)) return {}
+
+  const result: Record<string, string> = {}
+  for (const {field, message} of error.problem.errors ?? []){
+    if (result[field] === undefined) {
+      result[field] = message
+    }
+  }
+  return result
 }
 
 /**
  * 取出適合直接顯示給使用者的錯誤訊息。
- *
- * TODO(你來寫)：
- * 1. `ApiError` → 回 `error.problem.detail`（後端已經寫成使用者看得懂的中文）。
- * 2. 一般 `Error`（例如 fetch 失敗、離線）→ 回一句自己的文案，
- *    例如「無法連線到伺服器，請確認後端是否啟動」。
- *    不要直接把 `error.message` 丟出去，那通常是 "Failed to fetch" 這種對使用者無意義的字。
- * 3. 其他 unknown → 回一句通用兜底訊息。
  */
 export function toUserMessage(error: unknown): string {
-  throw new Error(`TODO: 實作 toUserMessage（收到 ${typeof error}）`)
+  if (error instanceof ApiError) return error.problem.detail
+
+  if (error instanceof TypeError) return '無法連線到伺服器，請檢查網路連線'
+
+  return '發生未知錯誤，請稍後再試'
 }
