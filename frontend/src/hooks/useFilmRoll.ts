@@ -7,16 +7,6 @@ import type { FilmRollResponse } from '../types/filmRoll'
 /**
  * 讀取單一卷期。
  *
- * TODO(你來寫)：
- *
- * ```ts
- * return useQuery({
- *   queryKey: filmRollKeys.detail(id),
- *   queryFn: () => getFilmRoll(id),
- *   enabled: ...,
- * })
- * ```
- *
  * `enabled` 是這支 hook 的重點。路由參數是從 URL 來的字串，
  * `/film-rolls/abc` 會讓 `Number('abc')` 變成 `NaN`。
  * 如果照樣發請求，你會打到 `/film-rolls/NaN` 然後拿到一個 400。
@@ -33,5 +23,9 @@ import type { FilmRollResponse } from '../types/filmRoll'
  * @param id 卷期 id。允許收到 NaN —— 由這支 hook 負責擋，而不是要求每個呼叫端自己檢查。
  */
 export function useFilmRoll(id: number): UseQueryResult<FilmRollResponse, Error> {
-  throw new Error(`TODO: 實作 useFilmRoll（id: ${id}）`)
+  return useQuery({
+    queryKey: filmRollKeys.detail(id),
+    queryFn: () => getFilmRoll(id),
+    enabled: Number.isInteger(id) && id > 0
+  })
 }

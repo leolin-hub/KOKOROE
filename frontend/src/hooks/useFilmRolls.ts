@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { listFilmRolls } from '../api/filmRolls'
 import { filmRollKeys } from './queryKeys'
@@ -44,5 +44,9 @@ import type { FilmRollListParams, FilmRollResponse, PageResponse } from '../type
 export function useFilmRolls(
   params: FilmRollListParams = {},
 ): UseQueryResult<PageResponse<FilmRollResponse>, Error> {
-  throw new Error(`TODO: 實作 useFilmRolls（${JSON.stringify(params)}）`)
+  return useQuery({
+    queryKey: filmRollKeys.list(params),
+    queryFn: () => listFilmRolls(params),
+    placeholderData: keepPreviousData,
+  })
 }
