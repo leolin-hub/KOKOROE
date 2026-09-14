@@ -24,29 +24,27 @@ interface ErrorBannerProps {
  *   409 狀態衝突        → ErrorBanner（不是填錯，是操作不成立）
  *   404 / 500 / 網路    → ErrorBanner
  *
- * TODO(你來寫)：
- *
- * 1. `error` 為 falsy 時回 `null`（讓呼叫端可以無條件 render 它）。
- *
- * 2. 用 `toUserMessage(error)` 取得顯示文字。
- *    ⚠️ 絕對不要顯示 `String(error)` 或 `error.message`：
- *    前者會印出 "Error: 500 伺服器內部錯誤: ..." 這種夾著型別名的字串，
- *    後者在網路失敗時是 "Failed to fetch" —— 對使用者毫無意義。
- *
- * 3. 決定要不要顯示重試按鈕。合理的規則：
- *    只有 5xx 與網路錯誤值得重試，4xx 不值得（重試一百次結果一樣）。
- *    提示：`const canRetry = !(error instanceof ApiError) || error.status >= 500`
- *    然後 `onRetry && canRetry` 才 render 按鈕。
- *
- * 4. 加上 `role="alert"`，理由同 FieldError。
- *
- * 5. 開發時的除錯便利（可選，但很好用）：
- *    在 `import.meta.env.DEV` 時，把 `problem.type` 也顯示出來。
- *    知道是 `validation-failed` 還是 `business-rule-violated`
- *    能省下很多翻後端程式的時間。正式環境不該顯示這種內部識別碼。
+ * `error` 為 falsy 時回 `null`，呼叫端可以無條件 render 它。
+ * 顯示文字一律走 `toUserMessage`：`error.message` 是給開發者看的，
+ * 網路失敗時只會是 "Failed to fetch"。
  */
 export default function ErrorBanner({ error, onRetry }: ErrorBannerProps) {
-  throw new Error(
-    `TODO: 實作 ErrorBanner（error: ${error instanceof ApiError ? error.status : typeof error}, onRetry: ${Boolean(onRetry)}）`,
+  if (!error) return null
+
+  // 只有 5xx 與網路錯誤值得重試；4xx 重試一百次結果都一樣。
+  const canRetry = !(error instanceof ApiError) || error.status >= 500
+
+  return (
+    <div className={styles.banner} role="alert">
+      <p className={styles.message}>{toUserMessage(error)}</p>
+      {import.meta.env.DEV && error instanceof ApiError && (
+        <code className={styles.debugType}>{error.problem.type}</code>
+      )}
+      {onRetry && canRetry && (
+        <button type="button" className={styles.retry} onClick={onRetry}>
+          重試
+        </button>
+      )}
+    </div>
   )
 }

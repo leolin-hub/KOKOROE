@@ -162,7 +162,8 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 - ✅ API 層：`http.ts`（fetch 封裝、problem+json 解析、204 處理）、`filmRolls.ts`、`problem.ts`
 - ✅ `QueryClient` 全域設定（4xx 不重試、5xx 最多重試 2 次）與 `useFilmRolls` / `useFilmRoll`
 - ✅ `lib/format.ts`（LocalDate 以字串處理不經過 `Date`、Instant 轉當地時間到分鐘）
-- ⏳ `StatusBadge` → `ErrorBanner` → `FilmRollCard` → 列表頁 → 篩選 → 分頁
+- ✅ `StatusBadge`、`ErrorBanner`（5xx／網路錯誤才可重試）、`FilmRollCard`
+- ⏳ 列表頁 → 篩選 → 分頁
 
 **寫入路徑**（下一支分支）
 
