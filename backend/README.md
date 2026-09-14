@@ -149,6 +149,7 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 | 後端 `FilmRoll` CRUD（本文件描述的範圍） | ✅ 完成 |
 | CI：GitHub Actions（後端 `mvnw test`；前端 lint、型別檢查、build）與 Dependabot | ✅ 完成 |
 | 前端垂直切片（Vite + React + TS + TanStack Query） | 🚧 進行中，見下方 |
+| 唱片櫃式卷期瀏覽（垂直捲動、當前卷期放大、無限捲動） | ⏳ 未開始 |
 | 拆出 `Camera` / `Lens` 實體，並以 Flyway migration 搬遷既有資料 | ⏳ 未開始 |
 | 沖掃成果（掃描圖檔）管理 | ⏳ 未開始 |
 | 容器化與部署（CD） | ⏳ 未開始 |
@@ -163,7 +164,7 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 - ✅ `QueryClient` 全域設定（4xx 不重試、5xx 最多重試 2 次）與 `useFilmRolls` / `useFilmRoll`
 - ✅ `lib/format.ts`（LocalDate 以字串處理不經過 `Date`、Instant 轉當地時間到分鐘）
 - ✅ `StatusBadge`、`ErrorBanner`（5xx／網路錯誤才可重試）、`FilmRollCard`
-- ⏳ 列表頁 → 篩選 → 分頁
+- ✅ 列表頁（篩選／排序／分頁狀態放在 URL、四種載入狀態）、`FilmRollFilters`、`Pagination`
 
 **寫入路徑**（下一支分支）
 

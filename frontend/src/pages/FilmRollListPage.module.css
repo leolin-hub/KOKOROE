@@ -29,48 +29,39 @@
   color: var(--color-bg);
 }
 
-/*
- * TODO(你來寫)：實作列表時會用到的 class。
- * 先留名字與意圖，樣式自己填。
- */
-
-/* 卡片的容器。建議用 grid，最小寬度 280px 自動換行：
-   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); */
+/* 卡片的容器。每張最小 280px，依寬度自動換行。 */
 .list {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: var(--space-4);
+  transition: opacity 0.15s ease;
 }
 
-/* 「還沒有任何卷期」的空狀態。置中、文字用 --color-text-muted。 */
+/* 空狀態（沒有卷期、篩選後沒有、頁碼超出範圍）。 */
 .empty {
-}
-
-/* 載入中的容器。 */
-.loading {
-}
-
-/* 翻頁時套在 .list 上，表示「這是上一頁的舊資料」。
-   建議 opacity: 0.5 + transition，別用 display 之類會造成版面跳動的手段。 */
-.stale {
-}
-
-/* 這個是骨架用的提示框，實作完可以整段刪掉。 */
-.placeholder {
-  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-4);
   border: 1px dashed var(--color-border);
   border-radius: var(--radius);
   color: var(--color-text-muted);
   text-align: center;
 }
 
-.placeholder p {
-  margin: var(--space-2) 0;
+.empty p {
+  margin: 0;
 }
 
-.placeholder code {
-  padding: 0.1em 0.4em;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-surface);
-  color: var(--color-accent);
-  font-size: 0.875em;
+.loading {
+  padding: var(--space-8) 0;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+/* 翻頁時套在 .list 上，表示「這是上一頁的舊資料」。
+   只改透明度，不用 display 之類會造成版面跳動的手段。 */
+.stale {
+  opacity: 0.5;
 }

@@ -6,29 +6,52 @@
   flex-wrap: wrap;
 }
 
-/*
- * TODO(你來寫)。
- */
-
-/* 狀態按鈕的容器。建議 display: flex + gap，小螢幕允許換行。 */
+/* 狀態按鈕的容器。小螢幕允許換行。 */
 .statusGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 /*
- * 單一狀態按鈕。
+ * 單一狀態按鈕。index.css 的 button 只設了字型與游標，外觀在這裡補齊。
  *
- * 重點：目前選中的狀態要用 .statusButtonActive 區分，
- * 而且**不要只靠背景色**。建議同時改文字顏色或加邊框 ——
+ * 選中狀態不只靠背景色：同時換邊框與文字顏色 ——
  * 深色介面上的淡色底差異在某些螢幕上幾乎看不出來。
- *
- * 記得配合 aria-pressed，讓螢幕閱讀器也知道哪個是選中的。
  */
 .statusButton {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
 }
 
-.statusButtonActive {
+.statusButton:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
 }
 
-/* 排序下拉的容器（label + select）。 */
+/* index.css 的 :focus-visible 只涵蓋表單欄位，按鈕要自己加。 */
+.statusButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.statusButtonActive,
+.statusButtonActive:hover {
+  border-color: var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
+  color: var(--color-accent);
+}
+
+/* 排序下拉的容器（label 文字 + select）。 */
 .sortGroup {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
 }
