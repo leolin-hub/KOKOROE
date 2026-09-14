@@ -1,24 +1,46 @@
 /*
- * TODO(你來寫)。
- *
- * 建議方向：左邊一條 3px 的 --color-danger 邊框 + 淡紅底色，
- * 而不是整塊實色紅 —— 後者在深色介面上很刺眼，
- * 而且會讓「可以恢復的錯誤」看起來像系統崩潰。
- *
- *   background-color: color-mix(in srgb, var(--color-danger) 12%, transparent);
- *   border-left: 3px solid var(--color-danger);
+ * 左邊一條 3px 的 --color-danger 邊框 + 淡紅底色，而不是整塊實色紅 ——
+ * 後者在深色介面上很刺眼，而且會讓「可以恢復的錯誤」看起來像系統崩潰。
  */
 
 .banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  background-color: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: var(--color-text);
 }
 
 .message {
+  flex: 1;
+  margin: 0;
 }
 
 /* 重試按鈕。視覺上要比錯誤訊息低調 —— 訊息是主角。 */
 .retry {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.retry:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
 }
 
 /* 只在開發模式顯示的 problem type。等寬字、極小、--color-text-muted。 */
 .debugType {
+  flex-basis: 100%;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
 }

@@ -16,77 +16,76 @@
  * 所以：LocalDate 的字串請**當字串處理**，不要丟進 Date。
  */
 
+import { PUSH_PULL_OPTIONS } from './constants'
+
+/** 欄位沒有值時的顯示文字。整個 app 統一用這一個。 */
+export const EMPTY_PLACEHOLDER = '—'
+
 /**
- * 格式化 LocalDate 字串（`"2026-03-01"`）。
+ * 格式化 LocalDate 字串：`"2026-03-01"` → `"2026/03/01"`。
  *
- * TODO(你來寫)：
- * 1. `value` 可能是 undefined（後端 non_null，null 欄位不會出現）→ 回一個佔位字串，
- *    例如 `'—'`。決定好這個佔位符後，整個 app 要一致。
- * 2. 把 `"2026-03-01"` 轉成你想要的顯示形式。
- *    最安全的做法是字串切割：`const [y, m, d] = value.split('-')`，
- *    然後組成 `` `${y}/${m}/${d}` ``。完全不經過 Date，就完全不會有時區問題。
- * 3. 如果你想要「2026年3月1日」這種格式，記得去掉月份的前導零（`Number(m)`）。
- *
- * 進階（想做再做）：若堅持要用 `Intl.DateTimeFormat` 拿到本地化月份名，
- * 請用 `new Date(Number(y), Number(m) - 1, Number(d))`
- * —— 這個建構子是以**本地時區**解讀，不會有偏移。
+ * 只做字串切割，完全不經過 Date，所以不受使用者時區影響。
  */
 export function formatDate(value: string | undefined): string {
-  throw new Error(`TODO: 實作 formatDate（收到 ${value}）`)
+  if (!value) return EMPTY_PLACEHOLDER
+  const [y, m, d] = value.split('-')
+  return `${y}/${m}/${d}`
 }
 
 /**
- * 格式化 Instant 字串（`"2026-03-01T09:12:33.512Z"`）。
+ * Instant 是真正的時間點，要經過 Date 轉成使用者當地時間。
  *
- * TODO(你來寫)：
- * 這個**應該**經過 Date —— 它是真正的時間點，轉成使用者當地時間才是對的行為。
+ * 在 module 層級建一次 formatter 重複使用，不必每次呼叫都重建。
+ * 用 `hourCycle: 'h23'` 而非 `hour12: false`：後者在部分瀏覽器會把午夜顯示成 `24:00`。
+ */
+const instantFormatter = new Intl.DateTimeFormat('zh-TW', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hourCycle: 'h23',
+})
+
+/**
+ * 格式化 Instant 字串：`"2026-03-01T09:12:33.512Z"` → `"2026/03/01 17:12"`（UTC+8）。
  *
- * 1. `new Date(value)` 解析（ISO 帶 Z 的字串，JS 解析是明確且正確的）。
- * 2. 用 `toLocaleString()` 輸出，或 `Intl.DateTimeFormat` 做更細的控制。
- * 3. 想一下要不要顯示秒。建立時間通常只需要到分鐘。
+ * 只顯示到分鐘。解析失敗時原樣回傳，因為 `format(Invalid Date)` 會丟 RangeError。
  */
 export function formatInstant(value: string): string {
-  throw new Error(`TODO: 實作 formatInstant（收到 ${value}）`)
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return instantFormatter.format(date)
 }
 
 /**
- * 格式化增減感格數，例如 `1` → `"推 +1 格"`、`0` → `"標準"`、`-2` → `"減 -2 格"`。
+ * 格式化增減感格數，例如 `1` → `"推 +1 格"`、`0` → `"標準（不推不減）"`、`-2` → `"減 -2 格"`。
  *
- * TODO(你來寫)：三個分支就好。
- * 提示：`lib/constants.ts` 的 `PUSH_PULL_OPTIONS` 已經有一份對應表，
- * 你可以直接查表（`PUSH_PULL_OPTIONS.find(o => o.value === stops)?.label`）
- * 而不是再寫一次 if/else —— 少一處要同步維護的文案。
+ * 文案直接查 `PUSH_PULL_OPTIONS`，與表單下拉選單共用同一份。
+ * 超出 -3 ~ +3 的值理論上不會出現（後端會擋），查不到時仍給一個看得懂的字串。
  */
 export function formatPushPull(stops: number): string {
-  throw new Error(`TODO: 實作 formatPushPull（收到 ${stops}）`)
+  const label = PUSH_PULL_OPTIONS.find((o) => o.value === stops)?.label
+  return label ?? `${stops > 0 ? '+' : ''}${stops} 格`
 }
 
 /**
- * 把 `<input type="date">` 需要的值格式化出來。
+ * 把 LocalDate 轉成 `<input type="date">` 的 `value`。
  *
- * TODO(你來寫)：
- * HTML date input 的 `value` **必須**是 `YYYY-MM-DD`，否則瀏覽器會當成空值
- * （而且不會有任何警告，你只會看到欄位一片空白）。
- *
- * 好消息：後端的 LocalDate 格式剛好就是這個。所以這支函式在多數情況下
- * 只需要處理 undefined → `''` 的轉換。
- *
- * 為什麼還要特別包一支函式而不是直接寫 `roll.loadedAt ?? ''`：
- * 因為 controlled input 的 value 不能是 undefined（React 會把它當成 uncontrolled，
- * 然後在 console 警告你元件從 uncontrolled 變成 controlled）。
- * 把這個「必須是空字串不能是 undefined」的知識收在一個有名字的地方，
- * 比在每個 input 上重複 `?? ''` 更不容易漏。
+ * date input 要求 `YYYY-MM-DD`，後端格式剛好一致，所以只需處理 undefined → `''`。
+ * controlled input 的 value 不能是 undefined，否則 React 會警告
+ * 元件從 uncontrolled 變成 controlled —— 這支函式存在就是為了不讓哪個 input 漏掉。
  */
 export function toDateInputValue(value: string | undefined): string {
-  throw new Error(`TODO: 實作 toDateInputValue（收到 ${value}）`)
+  return value ?? ''
 }
 
 /**
- * 取一個卷期的顯示標題，例如 `"Kodak Portra 400"` 或 `"Kodak Portra 400（ISO 400）"`。
+ * 卷期的顯示標題：`"Kodak Portra 400"`，沒有品牌時只有 `"Portra 400"`。
  *
- * TODO(你來寫)：自由發揮。這支存在的理由是列表卡片與詳情頁的標題該長得一樣。
- * 注意 `brand` 是 optional —— 想做成 `"Kodak · Portra 400"` 的話要處理它不存在的情況。
+ * 列表卡片與詳情頁共用，確保標題長得一樣。
+ * 用 truthy 判斷，空字串 brand 也視為沒有品牌，避免開頭多一個空白。
  */
 export function formatRollTitle(filmName: string, brand?: string): string {
-  throw new Error(`TODO: 實作 formatRollTitle（${brand ?? '無品牌'} / ${filmName}）`)
+  return brand ? `${brand} ${filmName}` : filmName
 }

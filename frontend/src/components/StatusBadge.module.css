@@ -23,13 +23,21 @@
  */
 
 .loaded {
+  color: var(--color-status-loaded);
+  background-color: color-mix(in srgb, var(--color-status-loaded) 15%, transparent);
 }
 
 .shooting {
+  color: var(--color-status-shooting);
+  background-color: color-mix(in srgb, var(--color-status-shooting) 15%, transparent);
 }
 
 .developing {
+  color: var(--color-status-developing);
+  background-color: color-mix(in srgb, var(--color-status-developing) 15%, transparent);
 }
 
 .archived {
+  color: var(--color-status-archived);
+  background-color: color-mix(in srgb, var(--color-status-archived) 15%, transparent);
 }

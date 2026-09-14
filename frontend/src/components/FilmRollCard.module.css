@@ -1,9 +1,3 @@
-/*
- * TODO(你來寫)：卡片樣式。
- *
- * 基本方向已經給了 .card，其餘自己填。
- */
-
 .card {
   display: block;
   padding: var(--space-4);
@@ -11,6 +5,7 @@
   border-radius: var(--radius);
   background-color: var(--color-surface);
   color: var(--color-text);
+  text-decoration: none;
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
@@ -34,22 +29,32 @@
 
 /* 標題列：名稱在左、StatusBadge 在右，baseline 對齊。 */
 .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .title {
+  margin: 0;
   font-size: 1rem;
 }
 
-/* <dl> 的容器。記得歸零預設 margin。
-   建議 display: grid + grid-template-columns: repeat(auto-fit, minmax(120px, 1fr))
-   讓欄位自動排成好幾欄。 */
+/* auto-fit 讓欄位依卡片寬度自動排成好幾欄。 */
 .meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
 }
 
-/* <dt>：欄位名稱。小字、--color-text-muted。 */
 .metaLabel {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
-/* <dd>：欄位值。記得 <dd> 預設有 margin-inline-start: 40px，要歸零。 */
+/* <dd> 預設有 margin-inline-start: 40px。 */
 .metaValue {
+  margin: 0;
 }

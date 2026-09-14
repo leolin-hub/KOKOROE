@@ -5,6 +5,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { BrowserRouter } from 'react-router'
 import App from './App'
 import './index.css'
+import { ApiError } from './api/problem'
 
 /**
  * 全域的 QueryClient。
@@ -13,30 +14,23 @@ import './index.css'
  * 放在元件裡，每次 re-render 都會生出一個新的 client，整個快取直接被丟掉。
  * 這是 TanStack Query 最經典的接線錯誤，症狀是「快取好像完全沒作用」。
  *
- * TODO(你來寫)：把全域預設值填進 `defaultOptions`。
- *
- * ```ts
- * const queryClient = new QueryClient({
- *   defaultOptions: {
- *     queries: {
- *       staleTime: 30_000,
- *       retry: (failureCount, error) => {
- *         // 4xx 不重試 —— 請求本身錯了，重試只是讓使用者多等。
- *         // 提示：用 `error instanceof ApiError && error.status < 500` 判斷。
- *         // 5xx 與網路錯誤才值得重試，且次數別超過 2。
- *       },
- *       refetchOnWindowFocus: false, // 開發時很吵；想要「換回分頁自動更新」再打開
- *     },
- *   },
- * })
- * ```
- *
  * 為什麼 retry 要設在這裡而不是每個 hook：
  * 「4xx 不重試」是整個 app 都成立的政策，不是某一支 query 的特例。
  * 政策放全域，特例才放個別 hook —— 這樣看到某個 hook 有自己的 retry 設定時，
  * 你會知道「這裡一定有原因」。
  */
-const queryClient = new QueryClient()
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && error.status < 500) return false
+        return failureCount < 2
+      },
+      refetchOnWindowFocus: false,
+    },
+  },
+})
 
 const rootElement = document.getElementById('root')
 if (!rootElement) {

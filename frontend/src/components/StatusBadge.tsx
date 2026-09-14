@@ -45,6 +45,18 @@ interface StatusBadgeProps {
  * 這個取捨（動態字串拼接 vs. 明確對應表）在整個前端會反覆出現，
  * 這裡只是規模最小的一次。
  */
+const STATUS_CLASS: Record<FilmRollStatus, string> = {
+    LOADED: styles.loaded,
+    SHOOTING: styles.shooting,
+    DEVELOPING: styles.developing,
+    ARCHIVED: styles.archived,
+  }
+
 export default function StatusBadge({ status }: StatusBadgeProps) {
-  throw new Error(`TODO: 實作 StatusBadge（status: ${status}）`)
+  return (
+    <span className={`${styles.badge} ${STATUS_CLASS[status]}`}>
+      {STATUS_LABELS[status]}
+    </span>
+
+  )
 }
