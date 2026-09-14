@@ -140,12 +140,29 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 
 ---
 
-## 目前範圍與後續
+## 目前進度
 
-第一階段（本次）刻意限定在 `FilmRoll` 單一實體，`cameraName` / `lensName` 先以字串儲存。
+後端第一階段刻意限定在 `FilmRoll` 單一實體，`cameraName` / `lensName` 先以字串儲存。
 
-後續規劃：
-1. 前端垂直切片（Vite + React + TS + TanStack Query）
-2. 拆出 `Camera` / `Lens` 實體，並以 Flyway migration 搬遷既有資料
-3. 沖掃成果（掃描圖檔）管理
-4. 容器化部署與 CI/CD
+| 項目 | 狀態 |
+|---|---|
+| 後端 `FilmRoll` CRUD（本文件描述的範圍） | ✅ 完成 |
+| CI：GitHub Actions（後端 `mvnw test`；前端 lint、型別檢查、build）與 Dependabot | ✅ 完成 |
+| 前端垂直切片（Vite + React + TS + TanStack Query） | 🚧 進行中，見下方 |
+| 拆出 `Camera` / `Lens` 實體，並以 Flyway migration 搬遷既有資料 | ⏳ 未開始 |
+| 沖掃成果（掃描圖檔）管理 | ⏳ 未開始 |
+| 容器化與部署（CD） | ⏳ 未開始 |
+
+### 前端進度
+
+實作順序與各檔案說明見 [`frontend/README.md`](../frontend/README.md)。前端拆成兩支 PR：
+
+**讀取路徑**（`feat/frontend-read-path`，進行中）
+
+- ✅ API 層：`http.ts`（fetch 封裝、problem+json 解析、204 處理）、`filmRolls.ts`、`problem.ts`
+- ✅ `QueryClient` 全域設定（4xx 不重試、5xx 最多重試 2 次）與 `useFilmRolls` / `useFilmRoll`
+- ⏳ `lib/format.ts` → `StatusBadge` → `ErrorBanner` → `FilmRollCard` → 列表頁 → 篩選 → 分頁
+
+**寫入路徑**（下一支分支）
+
+- ⏳ mutations、`FieldError`、`FilmRollForm`、新增／詳情／編輯頁
