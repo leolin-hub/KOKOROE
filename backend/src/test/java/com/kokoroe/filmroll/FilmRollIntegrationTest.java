@@ -167,10 +167,10 @@ class FilmRollIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
 
         JsonNode updatedNode = objectMapper.readTree(updated);
-        assertThat(updatedNode.get("createdAt").asText())
-                .isEqualTo(createdNode.get("createdAt").asText());
-        assertThat(updatedNode.get("updatedAt").asText())
-                .isNotEqualTo(createdNode.get("updatedAt").asText());
+        assertThat(updatedNode.get("createdAt").asString())
+                .isEqualTo(createdNode.get("createdAt").asString());
+        assertThat(updatedNode.get("updatedAt").asString())
+                .isNotEqualTo(createdNode.get("updatedAt").asString());
 
         filmRollRepository.deleteById(id);
     }
