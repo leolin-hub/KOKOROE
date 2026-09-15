@@ -21,26 +21,14 @@
 }
 
 .title {
+  margin: 0;
   font-size: 1.5rem;
 }
 
-/* 骨架提示框，實作完可刪。 */
-.placeholder {
-  padding: var(--space-6);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius);
+/* 載入中、網址不正確、找不到這卷時的說明文字。 */
+.message {
+  margin: 0;
+  padding: var(--space-8) 0;
   color: var(--color-text-muted);
   text-align: center;
-}
-
-.placeholder p {
-  margin: var(--space-2) 0;
-}
-
-.placeholder code {
-  padding: 0.1em 0.4em;
-  border-radius: var(--radius-sm);
-  background-color: var(--color-surface);
-  color: var(--color-accent);
-  font-size: 0.875em;
 }

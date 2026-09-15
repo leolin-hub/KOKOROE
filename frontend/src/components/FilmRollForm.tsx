@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import type { SubmitEvent, ReactNode } from 'react'
 import FieldError from './FieldError'
 import { FORMAT_OPTIONS, PUSH_PULL_OPTIONS, STATUS_LABELS, STATUS_ORDER } from '../lib/constants'
 import { toDateInputValue } from '../lib/format'
-import type { FilmRollStatus, UpdateFilmRollRequest } from '../types/filmRoll'
+import type { FilmFormat, FilmRollStatus, UpdateFilmRollRequest } from '../types/filmRoll'
 import styles from './FilmRollForm.module.css'
 
 /**
@@ -40,199 +41,58 @@ interface FilmRollFormProps {
   minStatus?: FilmRollStatus
 }
 
+interface FieldProps {
+  /** 欄位名，同時當作輸入元件的 `id` 與 FieldError 的 `fieldId`。 */
+  name: keyof FilmRollFormValues
+  label: string
+  required?: boolean
+  /** 欄位下方的灰色提示文字。 */
+  hint?: string
+  error?: string
+  /** 輸入元件本身。記得帶上 `id={name}`，label 的 htmlFor 才對得起來。 */
+  children: ReactNode
+}
+
+/** 一個欄位的外框：label、輸入元件、提示文字、錯誤訊息。 */
+function Field({ name, label, required, hint, error, children }: FieldProps) {
+  return (
+    <div className={styles.field}>
+      <label htmlFor={name} className={styles.label}>
+        {label}
+        {/* 必填已經由輸入元件的 required 屬性表達，星號只給眼睛看，不讓螢幕閱讀器念出來 */}
+        {required && (
+          <span className={styles.required} aria-hidden="true">
+            {' '}*
+          </span>
+        )}
+      </label>
+      {children}
+      {hint && <p className={styles.hint}>{hint}</p>}
+      <FieldError fieldId={name} message={error} />
+    </div>
+  )
+}
+
 /**
- * 新增頁與編輯頁共用的卷期表單。write path 裡最大的一支。
+ * 新增頁與編輯頁共用的卷期表單。
  *
  * 【影響畫面】
- *   - /film-rolls/new（裝新的一卷）：空白表單，按「建立卷期」
+ *   - /film-rolls/new（裝新的一卷）：預設值來自 `emptyFormValues()`，按「建立卷期」
  *   - /film-rolls/:id/edit（編輯卷期）：帶入這卷目前的資料，按「儲存變更」
- *   整個表單的輸入框、下拉選單、送出按鈕都在這支元件裡；
- *   頁面只負責「送出後要做什麼」（呼叫 API、跳頁）。
+ *   頁面只負責送出後要做什麼（呼叫 API、跳頁），欄位與狀態都在這裡。
  *
- * 【會用到】
- *   - useState                               react（已 import）
- *   - FieldError                             每個欄位下方的錯誤訊息（已 import）
- *   - FORMAT_OPTIONS、PUSH_PULL_OPTIONS      規格、增減感下拉的選項（已 import）
- *   - STATUS_ORDER、STATUS_LABELS            狀態下拉的選項與中文（已 import）
- *   - toDateInputValue(value)                日期欄位的 value（lib/format.ts，已 import）
- *   - styles.form / field / label / required / row / hint / textarea / actions / submit / cancel
- *   - 要自己補的 import：
- *       `FilmFormat` 型別 → 加到 `import type { FilmRollStatus, ... } from '../types/filmRoll'` 那行
- *       `FormEvent` 型別  → `import type { FormEvent } from 'react'`
- *
- * 【欄位清單】（* 為必填）
- *   filmName*      文字      <input>
- *   brand          文字      <input>          清空要存 undefined
- *   iso*           數字      <input type="number">  見步驟 3 的 ISO 說明
- *   format*        下拉      <select>         選項 FORMAT_OPTIONS
- *   pushPullStops  下拉      <select>         選項 PUSH_PULL_OPTIONS
- *   loadedAt*      日期      <input type="date">
- *   finishedAt     日期      <input type="date">    清空要存 undefined；還在拍就留空
- *   cameraName     文字      <input>          清空要存 undefined
- *   lensName       文字      <input>          清空要存 undefined
- *   notes          長文字    <textarea>       清空要存 undefined
- *   status*        下拉      <select>         選項見步驟 4
- *
- * ══════════════════════════════════════════════════
- * 步驟 1：表單狀態
- * ══════════════════════════════════════════════════
- *
- * 已經寫好的一行：
- * `const [values, setValues] = useState<FilmRollFormValues>(initialValues)`
- *
- * 再加一個 ISO 專用的「字串」state（原因見步驟 3）：
- * `const [isoInput, setIsoInput] = useState(String(initialValues.iso))`
- *
- * ⚠️ useState 的初始值只在元件第一次出現時採用。之後 initialValues 變了，values 也不會跟著變。
- *    所以編輯頁必須等資料載入完才 render 這個表單。
- *
- * ══════════════════════════════════════════════════
- * 步驟 2：一支通用的 setField，十個欄位共用
- * ══════════════════════════════════════════════════
- *
- * ```ts
- * function setField<K extends keyof FilmRollFormValues>(key: K, value: FilmRollFormValues[K]) {
- *   setValues((prev) => ({ ...prev, [key]: value }))
- * }
- * ```
- *
- * - `K extends keyof`：寫錯型別會被擋下來，例如 `setField('iso', 'abc')` 直接編譯錯誤。
- * - 用 `prev => ...` 而不是 `{ ...values, [key]: value }`：
- *   同一個事件連續改兩個欄位時，後者用的是舊的 values，會把前一次的修改蓋掉。
- *
- * ══════════════════════════════════════════════════
- * 步驟 3：每種欄位的 value / onChange 寫法（e 是事件物件）
- * ══════════════════════════════════════════════════
- *
- * 必填文字（filmName）
- *   value={values.filmName}
- *   onChange={(e) => setField('filmName', e.target.value)}
- *
- * 選填文字（brand / cameraName / lensName / notes）
- *   value={values.brand ?? ''}
- *   onChange={(e) => setField('brand', e.target.value || undefined)}
- *
- * ISO
- *   value={isoInput}
- *   onChange={(e) => setIsoInput(e.target.value)}
- *   再加上屬性：type="number" required min={1} max={12800} step={1}
- *
- * 規格下拉（format）
- *   value={values.format}
- *   onChange={(e) => setField('format', e.target.value as FilmFormat)}
- *   選項：FORMAT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
- *
- * 增減感下拉（pushPullStops）
- *   value={values.pushPullStops ?? 0}
- *   onChange={(e) => setField('pushPullStops', Number(e.target.value))}
- *   選項：PUSH_PULL_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)
- *
- * 必填日期（loadedAt）
- *   value={toDateInputValue(values.loadedAt)}
- *   onChange={(e) => setField('loadedAt', e.target.value)}
- *
- * 選填日期（finishedAt）
- *   value={toDateInputValue(values.finishedAt)}
- *   onChange={(e) => setField('finishedAt', e.target.value || undefined)}
- *   下面可以放一行提示：<p className={styles.hint}>還在拍的話留空</p>
- *
- * 【為什麼 ISO 要另外存字串】
- *   `<input type="number">` 的 e.target.value 永遠是字串，而 `Number('')` 是 0。
- *   如果直接寫 `setField('iso', Number(e.target.value))`，使用者清空欄位時 iso 會變成 0，
- *   送出後後端回「ISO 感光度必須為正整數」，但使用者看到的明明是空欄位。
- *   所以輸入中存字串，送出時才轉成數字（步驟 5）；
- *   `required min={1}` 讓瀏覽器在欄位空白或小於 1 時直接擋下送出。
- *
- * 【為什麼選填欄位用 `|| undefined`】
- *   清空欄位時 e.target.value 是 `''`。空字串送到後端：日期會解析失敗（400），
- *   文字則會在資料庫裡存一堆空字串。`||` 會把 '' 當成沒填，`??` 不會。
- *
- * 【為什麼 value 要寫 `?? ''`】
- *   React 的 input value 不能是 undefined，否則 console 會警告
- *   「元件從 uncontrolled 變成 controlled」。
- *
- * ══════════════════════════════════════════════════
- * 步驟 4：狀態下拉只列出可以選的狀態
- * ══════════════════════════════════════════════════
- *
- * ```ts
- * const availableStatuses = minStatus
- *   ? STATUS_ORDER.slice(STATUS_ORDER.indexOf(minStatus))
- *   : STATUS_ORDER
- * ```
- *
- *   value={values.status}
- *   onChange={(e) => setField('status', e.target.value as FilmRollStatus)}
- *   選項：availableStatuses.map((s) => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)
- *
- * 編輯頁會把目前狀態傳進 minStatus，使用者就選不到比現在更早的狀態（後端會回 409）。
- *
- * ══════════════════════════════════════════════════
- * 步驟 5：送出
- * ══════════════════════════════════════════════════
- *
- * ```tsx
- * function handleSubmit(e: FormEvent<HTMLFormElement>) {
- *   e.preventDefault()
- *   onSubmit({ ...values, iso: Number(isoInput) })
- * }
- *
- * return (
- *   <form className={styles.form} onSubmit={handleSubmit}>
- *     ...所有欄位（步驟 6）...
- *     ...按鈕列（步驟 7）...
- *   </form>
- * )
- * ```
- *
- * - `e.preventDefault()` 一定要寫：少了它瀏覽器會整頁重新載入，畫面閃一下就回到原樣，
- *   很容易誤以為是 API 失敗。
- * - 用 `<form onSubmit>` 而不是在按鈕上寫 onClick：在任何輸入框按 Enter 都能送出。
- *
- * ══════════════════════════════════════════════════
- * 步驟 6：一個欄位的完整樣子（其他欄位照這個改名字）
- * ══════════════════════════════════════════════════
- *
- * ```tsx
- * <div className={styles.field}>
- *   <label htmlFor="filmName" className={styles.label}>
- *     底片名稱 <span className={styles.required} aria-hidden="true">*</span>
- *   </label>
- *   <input
- *     id="filmName"
- *     value={values.filmName}
- *     onChange={(e) => setField('filmName', e.target.value)}
- *     aria-invalid={Boolean(fieldErrors.filmName)}
- *     aria-describedby={fieldErrors.filmName ? 'filmName-error' : undefined}
- *     required
- *   />
- *   <FieldError fieldId="filmName" message={fieldErrors.filmName} />
- * </div>
- * ```
- *
- * - label 的 `htmlFor` 要等於 input 的 `id`：點 label 會跳到輸入框，螢幕閱讀器也讀得出欄位名稱。
- * - `aria-describedby` 要等於 FieldError 產生的 id（`欄位名-error`）；沒有錯誤時給 undefined，不要給空字串。
- * - 必填星號包 `aria-hidden="true"`：螢幕閱讀器才不會念出「星號」，必填已經由 `required` 表達。
- * - 想讓兩個欄位並排（例如 ISO 和規格），外面再包一層 `<div className={styles.row}>`。
- * - notes 用 `<textarea className={styles.textarea}>`，寫法和選填文字一樣。
- *
- * ══════════════════════════════════════════════════
- * 步驟 7：按鈕列
- * ══════════════════════════════════════════════════
- *
- * ```tsx
- * <div className={styles.actions}>
- *   <button type="submit" className={styles.submit} disabled={isSubmitting}>
- *     {isSubmitting ? '儲存中…' : submitLabel}
- *   </button>
- * </div>
- * ```
- *
- * `disabled={isSubmitting}` 防止連點：沒有它，連點三下就會建立三卷。
- *
- * 想加「取消」按鈕的話：用 `useNavigate()`（react-router）拿到 navigate，
- * `<button type="button" className={styles.cancel} onClick={() => navigate(-1)}>取消</button>`。
- * `type="button"` 一定要寫，否則 form 裡的按鈕預設是 submit，按取消也會送出表單。
+ * 【幾個刻意的設計】
+ * - useState 的初始值只在第一次 mount 時採用，之後 `initialValues` 變了也不會跟著變。
+ *   所以編輯頁必須等資料載入完才 render 這個表單。
+ * - ISO 另外用字串 state 存：`<input type="number">` 的值是字串，而 `Number('')` 是 0。
+ *   直接轉數字的話，清空欄位會變成送出 0。送出時才轉，空白與範圍交給瀏覽器的 required / min 擋。
+ * - 選填欄位清空時存 `undefined` 而不是 `''`：空字串的日期後端會解析失敗，文字則會在資料庫留下空字串。
+ *   `|| undefined` 會把 '' 當成沒填，`??` 不會。
+ * - controlled input 的 value 不能是 undefined（React 會警告 uncontrolled → controlled），
+ *   所以選填欄位的 value 寫 `?? ''`，日期用 `toDateInputValue()`。
+ * - `maxLength` / `min` / `max` 與後端的 Bean Validation 上限一致，大部分錯誤在送出前就被瀏覽器擋下。
+ *   後端的檢查依然存在，這裡只是讓使用者不用等一趟來回。
+ * - 狀態下拉只列出 `minStatus` 及之後的狀態，UI 上選不到會被後端 409 擋下的倒退選項。
  */
 export default function FilmRollForm({
   initialValues,
@@ -243,53 +103,219 @@ export default function FilmRollForm({
   minStatus,
 }: FilmRollFormProps) {
   const [values, setValues] = useState<FilmRollFormValues>(initialValues)
+  const [isoInput, setIsoInput] = useState(String(initialValues.iso))
 
-  throw new Error(
-    `TODO: 實作 FilmRollForm（${submitLabel}；目前 ${Object.keys(values).length} 個欄位，` +
-      `${Object.keys(fieldErrors).length} 個錯誤，minStatus: ${minStatus ?? '無限制'}，` +
-      `submitting: ${isSubmitting}，onSubmit: ${typeof onSubmit}，setValues: ${typeof setValues}）`,
+  const availableStatuses = minStatus
+    ? STATUS_ORDER.slice(STATUS_ORDER.indexOf(minStatus))
+    : STATUS_ORDER
+
+  /**
+   * 通用的欄位更新。`K extends keyof` 讓 `setField('iso', 'abc')` 在編譯期就被擋下。
+   * 用 updater 形式：同一個事件連續改兩個欄位時，才不會用到過期的 values 而蓋掉前一次修改。
+   */
+  function setField<K extends keyof FilmRollFormValues>(key: K, value: FilmRollFormValues[K]) {
+    setValues((prev) => ({ ...prev, [key]: value }))
+  }
+
+  /** 有錯誤的欄位標上 aria-invalid，並指向 FieldError 產生的 id（`欄位名-error`）。 */
+  function errorProps(name: keyof FilmRollFormValues) {
+    const message = fieldErrors[name]
+    return {
+      'aria-invalid': Boolean(message),
+      'aria-describedby': message ? `${name}-error` : undefined,
+    }
+  }
+
+  function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
+    // 少了這行，瀏覽器會用原生方式送出表單並整頁重新載入。
+    e.preventDefault()
+    onSubmit({ ...values, iso: Number(isoInput) })
+  }
+
+  return (
+    <form className={styles.form} onSubmit={handleSubmit}>
+      <div className={styles.row}>
+        <Field name="brand" label="品牌" error={fieldErrors.brand}>
+          <input
+            id="brand"
+            value={values.brand ?? ''}
+            onChange={(e) => setField('brand', e.target.value || undefined)}
+            maxLength={50}
+            placeholder="Kodak"
+            {...errorProps('brand')}
+          />
+        </Field>
+        <Field name="filmName" label="底片名稱" required error={fieldErrors.filmName}>
+          <input
+            id="filmName"
+            value={values.filmName}
+            onChange={(e) => setField('filmName', e.target.value)}
+            required
+            maxLength={100}
+            placeholder="Portra 400"
+            {...errorProps('filmName')}
+          />
+        </Field>
+      </div>
+
+      <div className={styles.row}>
+        <Field name="iso" label="ISO" required error={fieldErrors.iso}>
+          <input
+            id="iso"
+            type="number"
+            inputMode="numeric"
+            value={isoInput}
+            onChange={(e) => setIsoInput(e.target.value)}
+            required
+            min={1}
+            max={12800}
+            step={1}
+            {...errorProps('iso')}
+          />
+        </Field>
+        <Field name="format" label="規格" required error={fieldErrors.format}>
+          <select
+            id="format"
+            value={values.format}
+            onChange={(e) => setField('format', e.target.value as FilmFormat)}
+            required
+            {...errorProps('format')}
+          >
+            {FORMAT_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <div className={styles.row}>
+        <Field name="pushPullStops" label="增減感" error={fieldErrors.pushPullStops}>
+          <select
+            id="pushPullStops"
+            value={values.pushPullStops ?? 0}
+            onChange={(e) => setField('pushPullStops', Number(e.target.value))}
+            {...errorProps('pushPullStops')}
+          >
+            {PUSH_PULL_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field name="status" label="狀態" required error={fieldErrors.status}>
+          <select
+            id="status"
+            value={values.status}
+            onChange={(e) => setField('status', e.target.value as FilmRollStatus)}
+            required
+            {...errorProps('status')}
+          >
+            {availableStatuses.map((s) => (
+              <option key={s} value={s}>
+                {STATUS_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+
+      <div className={styles.row}>
+        <Field name="loadedAt" label="裝片日期" required error={fieldErrors.loadedAt}>
+          <input
+            id="loadedAt"
+            type="date"
+            value={toDateInputValue(values.loadedAt)}
+            onChange={(e) => setField('loadedAt', e.target.value)}
+            required
+            {...errorProps('loadedAt')}
+          />
+        </Field>
+        <Field
+          name="finishedAt"
+          label="拍完日期"
+          hint="還在拍的話留空"
+          error={fieldErrors.finishedAt}
+        >
+          <input
+            id="finishedAt"
+            type="date"
+            value={toDateInputValue(values.finishedAt)}
+            onChange={(e) => setField('finishedAt', e.target.value || undefined)}
+            min={toDateInputValue(values.loadedAt) || undefined}
+            {...errorProps('finishedAt')}
+          />
+        </Field>
+      </div>
+
+      <div className={styles.row}>
+        <Field name="cameraName" label="相機" error={fieldErrors.cameraName}>
+          <input
+            id="cameraName"
+            value={values.cameraName ?? ''}
+            onChange={(e) => setField('cameraName', e.target.value || undefined)}
+            maxLength={100}
+            {...errorProps('cameraName')}
+          />
+        </Field>
+        <Field name="lensName" label="鏡頭" error={fieldErrors.lensName}>
+          <input
+            id="lensName"
+            value={values.lensName ?? ''}
+            onChange={(e) => setField('lensName', e.target.value || undefined)}
+            maxLength={100}
+            {...errorProps('lensName')}
+          />
+        </Field>
+      </div>
+
+      <Field name="notes" label="備註" error={fieldErrors.notes}>
+        <textarea
+          id="notes"
+          className={styles.textarea}
+          value={values.notes ?? ''}
+          onChange={(e) => setField('notes', e.target.value || undefined)}
+          maxLength={2000}
+          rows={4}
+          {...errorProps('notes')}
+        />
+      </Field>
+
+      <div className={styles.actions}>
+        {/* disabled 防止連點：沒有它，連點三下就會送出三次 */}
+        <button type="submit" className={styles.submit} disabled={isSubmitting}>
+          {isSubmitting ? '儲存中…' : submitLabel}
+        </button>
+      </div>
+    </form>
   )
 }
 
 /**
  * 新增頁表單一打開時的預設值。
  *
- * 【影響畫面】/film-rolls/new 打開時，各欄位預先填好的內容。
- *
- * 【會用到】`new Date()` 的 getFullYear() / getMonth() / getDate()、字串的 padStart()
- *
- * 【步驟】
- * 1. 組出「今天」的 YYYY-MM-DD（用本地時區）：
- *    ```ts
- *    const now = new Date()
- *    const today = [
- *      now.getFullYear(),
- *      String(now.getMonth() + 1).padStart(2, '0'),   // getMonth() 從 0 開始，要 +1
- *      String(now.getDate()).padStart(2, '0'),
- *    ].join('-')
- *    ```
- *
- * 2. 回傳完整的 FilmRollFormValues：
- *    ```ts
- *    return {
- *      filmName: '',
- *      iso: 400,               // PG-50 的 DX code 範圍是 100–400，預設 400
- *      format: '135',
- *      pushPullStops: 0,
- *      loadedAt: today,
- *      cameraName: 'PENTAX PG-50',   // 你的相機固定是這台，預先填好省得每次打
- *      lensName: '35mm f/4.5',
- *      status: 'LOADED',
- *    }
- *    ```
- *    brand、finishedAt、notes 是選填，不寫就是 undefined。
- *
- * ⚠️ 不要用 `new Date().toISOString().slice(0, 10)`：toISOString 是 UTC 時間，
- *    台灣凌晨 0～8 點時會拿到昨天的日期。
- * ⚠️ `padStart` 不能省：`2026-9-5` 不是合法的 date input 值，欄位會一片空白且沒有任何警告。
- *
- * 寫成函式而不是常數，是因為「今天」會變：寫成常數的話，頁面開著過了午夜就會是昨天。
+ * - 相機、鏡頭預先填好 PENTAX PG-50 與 35mm f/4.5；ISO 預設 400（PG-50 的 DX code 範圍是 100–400）。
+ * - 「今天」用本地時區的年月日自己組，不用 `toISOString()`：它是 UTC，台灣凌晨 0～8 點會拿到昨天。
+ * - `padStart` 不能省：`2026-9-5` 不是合法的 date input 值，欄位會一片空白。
+ * - 寫成函式而不是常數，因為「今天」會變；常數在頁面開過午夜後就會是昨天。
  */
 export function emptyFormValues(): FilmRollFormValues {
-  throw new Error('TODO: 實作 emptyFormValues')
+  const now = new Date()
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-')
+  return {
+    filmName: '',
+    iso: 400,
+    format: '135',
+    pushPullStops: 0,
+    loadedAt: today,
+    cameraName: 'PENTAX PG-50',
+    lensName: '35mm f/4.5',
+    status: 'LOADED',
+  }
 }

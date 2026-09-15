@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  max-width: 720px;
 }
 
 .back {
@@ -14,60 +15,115 @@
   color: var(--color-accent);
 }
 
-/*
- * TODO(你來寫)：詳情頁的樣式。
- */
-
-/* 標題列：底片名稱 + StatusBadge，兩端對齊。 */
-.header {
-}
-
-.title {
-}
-
-/* 欄位清單。建議用 <dl>，語意上就是「名稱 → 值」的對應。
-   grid-template-columns: max-content 1fr 會讓標籤欄自動對齊。 */
-.fields {
-}
-
-.fieldLabel {
-}
-
-.fieldValue {
-}
-
-/* 推進狀態的按鈕列。 */
-.actions {
-}
-
-/* 危險操作（刪除）。用 --color-danger，且視覺上與其他按鈕分開，
-   避免手滑。建議靠右或隔一條分隔線。 */
-.dangerZone {
-}
-
-/* 建立/更新時間的小字，放最底下。 */
-.meta {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-}
-
-/* 骨架提示框，實作完可刪。 */
-.placeholder {
-  padding: var(--space-6);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius);
+/* 載入中、網址不正確、找不到這卷、已刪除時的說明文字。 */
+.message {
+  margin: 0;
+  padding: var(--space-8) 0;
   color: var(--color-text-muted);
   text-align: center;
 }
 
-.placeholder p {
-  margin: var(--space-2) 0;
+/* 標題列：底片名稱 + StatusBadge，兩端對齊。 */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
 }
 
-.placeholder code {
-  padding: 0.1em 0.4em;
-  border-radius: var(--radius-sm);
+.title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+/* 欄位清單（<dl>）。max-content 讓標籤欄依最長的標籤自動對齊。 */
+.fields {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-3) var(--space-6);
+  margin: 0;
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
   background-color: var(--color-surface);
+}
+
+.fieldLabel {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+/* pre-wrap 保留備註裡的換行；overflow-wrap 讓很長的英文字不會撐破版面。 */
+.fieldValue {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* 推進狀態的按鈕與編輯連結。 */
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.advanceButton {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-sm);
+  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
   color: var(--color-accent);
-  font-size: 0.875em;
+  font-weight: 500;
+}
+
+.advanceButton:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-accent) 25%, transparent);
+}
+
+.editLink {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+}
+
+.editLink:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text);
+}
+
+/* 危險操作（刪除）。用分隔線與其他按鈕隔開並靠右，避免手滑。 */
+.dangerZone {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.deleteButton {
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-danger);
+}
+
+.deleteButton:hover:not(:disabled) {
+  background-color: color-mix(in srgb, var(--color-danger) 15%, transparent);
+}
+
+.advanceButton:focus-visible,
+.editLink:focus-visible,
+.deleteButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* 建立/更新時間的小字，放最底下。 */
+.meta {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }

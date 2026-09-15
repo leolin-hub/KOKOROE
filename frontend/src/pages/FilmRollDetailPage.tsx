@@ -1,10 +1,21 @@
+import { Fragment } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { useFilmRoll } from '../hooks/useFilmRoll'
 import { useDeleteFilmRoll, useUpdateFilmRoll } from '../hooks/useFilmRollMutations'
 import StatusBadge from '../components/StatusBadge'
 import ErrorBanner from '../components/ErrorBanner'
-import { formatDate, formatInstant, formatPushPull, formatRollTitle } from '../lib/format'
-import { STATUS_LABELS, STATUS_ORDER } from '../lib/constants'
+import { ApiError } from '../api/problem'
+import {
+  EMPTY_PLACEHOLDER,
+  formatDate,
+  formatInstant,
+  formatPushPull,
+  formatRollTitle,
+} from '../lib/format'
+import { FORMAT_OPTIONS, STATUS_LABELS, STATUS_ORDER } from '../lib/constants'
+import { toUpdateRequest } from '../lib/toUpdateRequest'
+import type { FilmRollStatus } from '../types/filmRoll'
 import styles from './FilmRollDetailPage.module.css'
 
 /**
@@ -14,175 +25,153 @@ import styles from './FilmRollDetailPage.module.css'
  *   ← 回到列表
  *   標題（Kodak Portra 400）＋ 狀態 badge
  *   欄位清單：ISO、規格、增減感、裝片日期、拍完日期、相機、鏡頭、備註
- *   狀態推進按鈕（例如「推進到：沖洗中」）＋「編輯」連結
- *   刪除按鈕（危險區）
+ *   推進狀態按鈕（例如「推進到：沖洗中」）＋ 編輯連結
+ *   刪除按鈕（與上面用分隔線隔開）
  *   建立時間 / 最後更新時間
  *
- * 【會用到】
- *   - useParams()、useNavigate()                      react-router（已 import）
- *   - useFilmRoll(id)                                 hooks/useFilmRoll.ts（已 import）：讀資料
- *   - useUpdateFilmRoll()、useDeleteFilmRoll()        hooks/useFilmRollMutations.ts（已 import）
- *   - StatusBadge、ErrorBanner                        components（已 import）
- *   - formatRollTitle、formatDate、formatInstant、formatPushPull   lib/format.ts（已 import）
- *   - STATUS_ORDER、STATUS_LABELS                     lib/constants.ts（已 import）
- *   - 要自己加的 import：
- *       `EMPTY_PLACEHOLDER`  → 加到 lib/format 那行，空欄位顯示「—」
- *       `FORMAT_OPTIONS`     → 加到 lib/constants 那行，規格顯示「135（35mm）」
- *       `ApiError`           → `import { ApiError } from '../api/problem'`
- *       `FilmRollStatus`     → `import type { FilmRollStatus } from '../types/filmRoll'`
- *       `toUpdateRequest`    → 步驟 4 要新建的 `lib/toUpdateRequest.ts`
- *   - styles.page / back / header / title / fields / fieldLabel / fieldValue / actions / dangerZone / meta
- *
- * ══════════════════════════════════════════════════
- * 步驟 1：所有 hook 先呼叫（一定要在任何 return 之前）
- * ══════════════════════════════════════════════════
- *
- * ```ts
- * const { id } = useParams<{ id: string }>()
- * const rollId = Number(id)
- * const navigate = useNavigate()
- * const { data: roll, isPending, isError, error } = useFilmRoll(rollId)
- * const updateMutation = useUpdateFilmRoll()
- * const deleteMutation = useDeleteFilmRoll()
- * ```
- *
- * ══════════════════════════════════════════════════
- * 步驟 2：依序處理「還不能顯示內容」的情況，每種都直接 return
- * ══════════════════════════════════════════════════
- *
- * 每個 return 的畫面都要包含「← 回到列表」，使用者才回得去。
- *
- * a. 網址上的 id 不是正整數（例如 /film-rolls/abc）：
- *    `if (!Number.isInteger(rollId) || rollId <= 0)` → 顯示「網址不正確」
- *    ⚠️ 這個判斷一定要放在 isPending 之前：id 不合法時 useFilmRoll 不會發請求，
- *       isPending 會永遠是 true，畫面會一直卡在「載入中」。
- *
- * b. `if (isPending)` → 顯示「載入中…」
- *
- * c. `if (isError)`：
- *    - `error instanceof ApiError && error.status === 404` → 顯示「這卷不存在，可能已被刪除」
- *    - 其他錯誤 → `<ErrorBanner error={error} />`
- *
- * 走到這裡之後，TypeScript 已經知道 `roll` 一定有值。
- *
- * ══════════════════════════════════════════════════
- * 步驟 3：顯示欄位
- * ══════════════════════════════════════════════════
- *
- * 標題列：`<div className={styles.header}>` 裡放
- *   `<h1 className={styles.title}>{formatRollTitle(roll.filmName, roll.brand)}</h1>` 和 `<StatusBadge status={roll.status} />`
- *
- * 欄位清單用 `<dl className={styles.fields}>`，每一欄是
- *   `<dt className={styles.fieldLabel}>ISO</dt><dd className={styles.fieldValue}>{roll.iso}</dd>`
- *
- * 和列表卡片不同：詳情頁的選填欄位沒有值也要顯示那一列，值用「—」。
- *   - 規格：`FORMAT_OPTIONS.find((o) => o.value === roll.format)?.label ?? roll.format`
- *   - 增減感：`formatPushPull(roll.pushPullStops)`
- *   - 裝片日期 / 拍完日期：`formatDate(roll.loadedAt)`、`formatDate(roll.finishedAt)`（undefined 會自動顯示「—」）
- *   - 相機 / 鏡頭 / 備註：`roll.cameraName ?? EMPTY_PLACEHOLDER`
- *   - 建立 / 更新時間：`formatInstant(roll.createdAt)`、`formatInstant(roll.updatedAt)`，放在頁面最下面的 `styles.meta`
- *
- * ══════════════════════════════════════════════════
- * 步驟 4：推進狀態按鈕
- * ══════════════════════════════════════════════════
- *
- * PUT 是「整份取代」，所以要把這卷的所有欄位帶齊再改 status。
- * 先新建 `src/lib/toUpdateRequest.ts`（編輯頁也會用到同一個轉換）：
- *
- * ```ts
- * import type { FilmRollResponse, UpdateFilmRollRequest } from '../types/filmRoll'
- *
- * export function toUpdateRequest(roll: FilmRollResponse): UpdateFilmRollRequest {
- *   return {
- *     filmName: roll.filmName,
- *     brand: roll.brand,
- *     iso: roll.iso,
- *     format: roll.format,
- *     pushPullStops: roll.pushPullStops,
- *     loadedAt: roll.loadedAt,
- *     finishedAt: roll.finishedAt,
- *     cameraName: roll.cameraName,
- *     lensName: roll.lensName,
- *     notes: roll.notes,
- *     status: roll.status,
- *   }
- * }
- * ```
- *
- * ⚠️ 不能偷懶寫成 `{ ...roll }`：那會把 id、createdAt、updatedAt 一起送出去，
- *    後端設了 fail-on-unknown-properties，會直接回 400。
- *
- * 然後在頁面裡（步驟 2 的 return 之後）：
- *
- * ```ts
- * const baseRequest = toUpdateRequest(roll)
- * const nextStatuses = STATUS_ORDER.slice(STATUS_ORDER.indexOf(roll.status) + 1)
- *
- * function handleAdvance(next: FilmRollStatus) {
- *   updateMutation.mutate({ id: rollId, body: { ...baseRequest, status: next } })
- * }
- * ```
- *
- * - `nextStatuses` 只包含比目前更後面的狀態，已歸檔時是空陣列，就不會顯示任何推進按鈕。
- *   按鈕：`nextStatuses.map((s) => <button key={s} type="button" onClick={() => handleAdvance(s)} disabled={updateMutation.isPending}>推進到：{STATUS_LABELS[s]}</button>)`
- * - 為什麼先算出 `baseRequest` 而不是在 handleAdvance 裡直接用 `roll`：
- *   TypeScript 在函式裡面會「忘記」roll 已經確認過有值，直接用會報「roll 可能是 undefined」。
- *   baseRequest 的型別本身就不含 undefined，沒有這個問題。
- *
- * 編輯連結和推進按鈕放在一起：
- *   `<div className={styles.actions}>` 裡放推進按鈕和 `<Link to={`/film-rolls/${rollId}/edit`}>編輯</Link>`
- *
- * ══════════════════════════════════════════════════
- * 步驟 5：刪除
- * ══════════════════════════════════════════════════
- *
- * ```ts
- * const title = formatRollTitle(roll.filmName, roll.brand)
- *
- * function handleDelete() {
- *   if (!window.confirm(`確定要刪除「${title}」嗎？此動作無法復原。`)) return
- *   deleteMutation.mutate(rollId, {
- *     onSuccess: () => navigate('/film-rolls', { replace: true }),
- *   })
- * }
- * ```
- *
- * - 刪除按鈕放在 `<div className={styles.dangerZone}>` 裡，`disabled={deleteMutation.isPending}`。
- * - `replace: true`：把詳情頁從瀏覽紀錄換掉，按上一頁才不會回到已經刪除的卷期（404）。
- * - `window.confirm` 是瀏覽器內建的確認視窗，先用它就好，不用自己做彈出視窗。
- * - hook 裡的 onSuccess 和這裡 mutate 的 onSuccess 兩個都會執行：
- *   快取處理寫在 hook（每個頁面都需要），跳頁寫在這裡（只有這一頁需要）。
- *
- * ══════════════════════════════════════════════════
- * 步驟 6：推進或刪除失敗時的訊息
- * ══════════════════════════════════════════════════
- *
- * 放在按鈕上方：
- * ```tsx
- * {updateMutation.error && <ErrorBanner error={updateMutation.error} />}
- * {deleteMutation.error && <ErrorBanner error={deleteMutation.error} />}
- * ```
- *
- * 最後把 `.placeholder` 區塊刪掉。
+ * 【幾個刻意的設計】
+ * - 網址的 id 不合法要在 isPending 之前處理：id 不合法時 useFilmRoll 不發請求，isPending 會永遠是 true。
+ * - 404 顯示「這卷不存在」而不是通用錯誤：使用者要知道是「東西沒了」而不是「系統壞了」，才不會一直重試。
+ * - 與列表卡片不同，選填欄位沒有值也顯示那一列（值為「—」），讓使用者知道「這欄是空的」。
+ * - 推進狀態列出所有比目前更後面的狀態：後端允許跳關（例如報銷的卷片直接歸檔），但不允許倒退。
+ *   UI 上不提供倒退的按鈕，後端的 409 檢查仍然存在，因為 API 不只有這個畫面會呼叫。
+ * - PUT 是整份取代，body 用 `toUpdateRequest(roll)` 帶齊欄位再改 status，不能用 `{ ...roll }`。
+ *   先在 render 裡算出 `baseRequest`，handler 裡就不必再用到 `roll`
+ *   （TypeScript 在函式內部會忘記 roll 已經確認過有值）。
+ * - 刪除成功後暫停查詢（`enabled: !deleteMutation.isSuccess`）：跳回列表前頁面還會再 render 一次，
+ *   這時快取已被移除，不暫停的話會重抓一次、拿到 404，畫面也會閃一下「載入中」。
+ * - 刪除後用 `replace: true` 跳頁，把這一頁從瀏覽紀錄換掉，按上一頁才不會回到已刪除的卷期。
  */
 export default function FilmRollDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const rollId = Number(id)
+  const navigate = useNavigate()
+  const updateMutation = useUpdateFilmRoll()
+  const deleteMutation = useDeleteFilmRoll()
+  const { data: roll, isPending, isError, error, refetch } = useFilmRoll(rollId, {
+    enabled: !deleteMutation.isSuccess,
+  })
+
+  const backLink = (
+    <Link to="/film-rolls" className={styles.back}>
+      ← 回到列表
+    </Link>
+  )
+
+  /** 還不能顯示內容時（網址錯誤、已刪除、載入中）的畫面。 */
+  function renderMessage(content: ReactNode) {
+    return (
+      <div className={styles.page}>
+        {backLink}
+        {content}
+      </div>
+    )
+  }
+
+  if (!Number.isInteger(rollId) || rollId <= 0) {
+    return renderMessage(<p className={styles.message}>網址不正確，找不到這卷底片。</p>)
+  }
+
+  if (deleteMutation.isSuccess) {
+    return renderMessage(<p className={styles.message}>已刪除，正在回到列表…</p>)
+  }
+
+  if (isPending) {
+    return renderMessage(<p className={styles.message}>載入中…</p>)
+  }
+
+  if (isError) {
+    return renderMessage(
+      error instanceof ApiError && error.status === 404 ? (
+        <p className={styles.message}>這卷不存在，可能已被刪除。</p>
+      ) : (
+        <ErrorBanner error={error} onRetry={() => void refetch()} />
+      ),
+    )
+  }
+
+  const title = formatRollTitle(roll.filmName, roll.brand)
+  const baseRequest = toUpdateRequest(roll)
+  const nextStatuses = STATUS_ORDER.slice(STATUS_ORDER.indexOf(roll.status) + 1)
+  const isBusy = updateMutation.isPending || deleteMutation.isPending
+
+  const fields: { label: string; value: ReactNode }[] = [
+    { label: 'ISO', value: roll.iso },
+    {
+      label: '規格',
+      value: FORMAT_OPTIONS.find((o) => o.value === roll.format)?.label ?? roll.format,
+    },
+    { label: '增減感', value: formatPushPull(roll.pushPullStops) },
+    { label: '裝片日期', value: formatDate(roll.loadedAt) },
+    { label: '拍完日期', value: formatDate(roll.finishedAt) },
+    { label: '相機', value: roll.cameraName ?? EMPTY_PLACEHOLDER },
+    { label: '鏡頭', value: roll.lensName ?? EMPTY_PLACEHOLDER },
+    { label: '備註', value: roll.notes ?? EMPTY_PLACEHOLDER },
+  ]
+
+  function handleAdvance(next: FilmRollStatus) {
+    updateMutation.mutate({ id: rollId, body: { ...baseRequest, status: next } })
+  }
+
+  function handleDelete() {
+    if (!window.confirm(`確定要刪除「${title}」嗎？此動作無法復原。`)) return
+    // hook 裡的 onSuccess 負責快取；跳頁只有這一頁需要，寫在這裡。兩個都會執行（hook 的先）。
+    deleteMutation.mutate(rollId, {
+      onSuccess: () => navigate('/film-rolls', { replace: true }),
+    })
+  }
 
   return (
     <div className={styles.page}>
-      <Link to="/film-rolls" className={styles.back}>
-        ← 回到列表
-      </Link>
+      {backLink}
 
-      <div className={styles.placeholder}>
-        <p>
-          <strong>FilmRollDetailPage</strong> 還沒實作（目前的 id 參數：<code>{id}</code>）。
-        </p>
-        <p>
-          需要 <code>hooks/useFilmRoll.ts</code> 與{' '}
-          <code>hooks/useFilmRollMutations.ts</code>。
-        </p>
+      <div className={styles.header}>
+        <h1 className={styles.title}>{title}</h1>
+        <StatusBadge status={roll.status} />
       </div>
+
+      <dl className={styles.fields}>
+        {fields.map(({ label, value }) => (
+          <Fragment key={label}>
+            <dt className={styles.fieldLabel}>{label}</dt>
+            <dd className={styles.fieldValue}>{value}</dd>
+          </Fragment>
+        ))}
+      </dl>
+
+      {updateMutation.error && <ErrorBanner error={updateMutation.error} />}
+      <div className={styles.actions}>
+        {nextStatuses.map((status) => (
+          <button
+            key={status}
+            type="button"
+            className={styles.advanceButton}
+            onClick={() => handleAdvance(status)}
+            disabled={isBusy}
+          >
+            推進到：{STATUS_LABELS[status]}
+          </button>
+        ))}
+        <Link to={`/film-rolls/${rollId}/edit`} className={styles.editLink}>
+          編輯
+        </Link>
+      </div>
+
+      {deleteMutation.error && <ErrorBanner error={deleteMutation.error} />}
+      <div className={styles.dangerZone}>
+        <button
+          type="button"
+          className={styles.deleteButton}
+          onClick={handleDelete}
+          disabled={isBusy}
+        >
+          {deleteMutation.isPending ? '刪除中…' : '刪除這卷'}
+        </button>
+      </div>
+
+      <p className={styles.meta}>
+        建立於 {formatInstant(roll.createdAt)} · 最後更新 {formatInstant(roll.updatedAt)}
+      </p>
     </div>
   )
 }

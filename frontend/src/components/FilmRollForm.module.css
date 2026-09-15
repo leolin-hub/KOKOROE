@@ -1,10 +1,3 @@
-/*
- * TODO(你來寫)：表單樣式。
- *
- * .form 與 .field 已經給了基本骨架（這兩個沒什麼可學的），
- * 其餘留給你。
- */
-
 .form {
   display: flex;
   flex-direction: column;
@@ -19,6 +12,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  /* grid 子元素預設 min-width: auto，長內容會把欄位撐破版面 */
+  min-width: 0;
 }
 
 .label {
@@ -26,31 +21,38 @@
   font-weight: 500;
 }
 
-/* 必填星號。用 --color-accent 或 --color-danger 都可以，挑一個就別換。 */
+/* 必填星號。 */
 .required {
+  color: var(--color-accent);
 }
 
-/*
- * 兩欄並排的列（例如 ISO 與 規格 放同一行）。
- *
- * 建議 display: grid + grid-template-columns: 1fr 1fr，
- * 並在 @media (max-width: 600px) 時改成單欄 ——
- * 手機上兩個並排的輸入框會太窄。
- */
+/* 兩欄並排的列（例如 ISO 與規格）。手機上兩個並排的輸入框太窄，改成單欄。 */
 .row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
 }
 
-/* 欄位下方的提示文字（例如「-3 ~ +3，正數為推感」）。
-   小字、--color-text-muted。與 FieldError 的紅字區分開。 */
+@media (max-width: 600px) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 欄位下方的提示文字。小字灰色，與 FieldError 的紅字區分開。 */
 .hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
 }
 
-/* notes 的 textarea。建議 min-height 搭配 resize: vertical
-   —— 允許使用者拉高，但不要讓他們拉寬破壞版面。 */
+/* 允許使用者拉高，但不讓他們拉寬破壞版面。 */
 .textarea {
+  min-height: 6rem;
+  resize: vertical;
 }
 
-/* 送出按鈕列。建議靠右，或在手機上撐滿寬度。 */
+/* 送出按鈕列，靠右。 */
 .actions {
   display: flex;
   justify-content: flex-end;
@@ -58,26 +60,33 @@
   margin-top: var(--space-2);
 }
 
-/* 主要送出按鈕。 */
+/* 主要送出按鈕，與列表頁「裝新的一卷」同一套主色。disabled 樣式由 index.css 統一處理。 */
 .submit {
+  padding: var(--space-2) var(--space-6);
+  border: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-accent);
+  color: var(--color-bg);
+  font-weight: 500;
 }
 
-/* 取消／返回的次要按鈕。視覺權重要明顯低於 .submit。 */
-.cancel {
+.submit:hover:not(:disabled) {
+  background-color: var(--color-accent-hover);
+}
+
+.submit:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
 }
 
 /*
  * 有錯誤的輸入框。
  *
- * 建議不要另外加 class，而是直接用 attribute selector：
- *
- *   input[aria-invalid='true'],
- *   select[aria-invalid='true'],
- *   textarea[aria-invalid='true'] {
- *     border-color: var(--color-danger);
- *   }
- *
- * 好處是樣式與可存取性屬性綁在一起 ——
- * 不可能出現「紅框但沒有 aria-invalid」或反過來的不一致。
- * 這比多一個 .inputError class 更難寫錯。
+ * 直接用 aria-invalid 當選擇器，不另外加 class：
+ * 樣式與可存取性屬性綁在一起，不可能出現「紅框但沒有 aria-invalid」或反過來。
  */
+.form input[aria-invalid='true'],
+.form select[aria-invalid='true'],
+.form textarea[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}

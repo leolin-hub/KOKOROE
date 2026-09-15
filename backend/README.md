@@ -2,7 +2,7 @@
 
 底片攝影與器材履歷管理系統的後端服務。
 
-- **Java 21** / **Spring Boot 4.0.8** / Spring Data JPA / PostgreSQL 16 / Flyway
+- **Java 21** / **Spring Boot 4.1.1** / Spring Data JPA / PostgreSQL 16 / Flyway
 - 分層架構：`Controller`（路由 + `@Valid`）→ `Service`（商業邏輯）→ `Repository`（資料存取）
 - `@Entity` 不外洩至 API 層，一律經 DTO 轉換
 
@@ -158,7 +158,7 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 
 實作順序與各檔案說明見 [`frontend/README.md`](../frontend/README.md)。前端拆成兩支 PR：
 
-**讀取路徑**（`feat/frontend-read-path`，進行中）
+**讀取路徑**（`feat/frontend-read-path`，已合併）
 
 - ✅ API 層：`http.ts`（fetch 封裝、problem+json 解析、204 處理）、`filmRolls.ts`、`problem.ts`
 - ✅ `QueryClient` 全域設定（4xx 不重試、5xx 最多重試 2 次）與 `useFilmRolls` / `useFilmRoll`
@@ -166,6 +166,9 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 - ✅ `StatusBadge`、`ErrorBanner`（5xx／網路錯誤才可重試）、`FilmRollCard`
 - ✅ 列表頁（篩選／排序／分頁狀態放在 URL、四種載入狀態）、`FilmRollFilters`、`Pagination`
 
-**寫入路徑**（下一支分支）
+**寫入路徑**（`feat/frontend-write-path`，進行中）
 
-- ⏳ mutations、`FieldError`、`FilmRollForm`、新增／詳情／編輯頁
+- ✅ `useCreateFilmRoll` / `useUpdateFilmRoll` / `useDeleteFilmRoll`（成功後失效列表與詳情快取）
+- ✅ `FieldError`、`FilmRollForm`（新增與編輯共用，輸入限制與後端驗證一致）
+- ✅ 新增頁、詳情頁（推進狀態、刪除）、編輯頁；`lib/toUpdateRequest.ts`
+- ⏳ 收尾：`noUnusedLocals` / `noUnusedParameters` 改回 `true`、確認 `npm run build` 與 `npm run lint` 通過

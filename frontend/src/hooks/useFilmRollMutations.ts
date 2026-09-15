@@ -77,7 +77,14 @@ export function useCreateFilmRoll(): UseMutationResult<
   Error,
   CreateFilmRollRequest
 > {
-  throw new Error('TODO: 實作 useCreateFilmRoll')
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createFilmRoll,
+    onSuccess: (created) => {
+      queryClient.setQueryData(filmRollKeys.detail(created.id), created)
+      return queryClient.invalidateQueries({ queryKey: filmRollKeys.lists() })
+    },
+  })
 }
 
 /** `useUpdateFilmRoll` 的 `mutate()` 參數：要更新哪一卷（id）、更新成什麼（body）。 */
@@ -120,7 +127,14 @@ export function useUpdateFilmRoll(): UseMutationResult<
   Error,
   UpdateFilmRollVariables
 > {
-  throw new Error('TODO: 實作 useUpdateFilmRoll')
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: UpdateFilmRollVariables) => updateFilmRoll(id, body),
+    onSuccess: (_updated, { id }) => {
+      queryClient.invalidateQueries({ queryKey: filmRollKeys.detail(id) })
+      queryClient.invalidateQueries({ queryKey: filmRollKeys.lists() })
+    },
+  })
 }
 
 /**
@@ -146,5 +160,12 @@ export function useUpdateFilmRoll(): UseMutationResult<
  *       → 列表少了一筆
  */
 export function useDeleteFilmRoll(): UseMutationResult<void, Error, number> {
-  throw new Error('TODO: 實作 useDeleteFilmRoll')
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteFilmRoll,
+    onSuccess: (_data, id) => {
+      queryClient.removeQueries({ queryKey: filmRollKeys.detail(id) })
+      queryClient.invalidateQueries({ queryKey: filmRollKeys.lists() })
+    },
+  })
 }

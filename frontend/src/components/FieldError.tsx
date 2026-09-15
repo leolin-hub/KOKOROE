@@ -45,5 +45,11 @@ interface FieldErrorProps {
  *   讓錯誤不只靠紅色傳達，色盲使用者也看得出來。
  */
 export default function FieldError({ message, fieldId }: FieldErrorProps) {
-  throw new Error(`TODO: 實作 FieldError（${fieldId}: ${message ?? '無錯誤'}）`)
+  if (!message) return null
+  return (
+    <p id={`${fieldId}-error`} className={styles.error} role="alert"
+    >
+      {message}
+    </p>
+  )
 }
