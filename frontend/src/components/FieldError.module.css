@@ -1,13 +1,18 @@
 /*
- * TODO(你來寫)：
- *
- * 建議：
- *   color: var(--color-danger);
- *   font-size: 0.8125rem;
- *   margin: var(--space-1) 0 0;
- *
  * 並考慮在 ::before 放一個 ⚠ 符號 ——
  * 讓錯誤不只靠顏色傳達（見 .tsx 裡的說明）。
  */
 .error {
+    color: var(--color-danger);
+    font-size: 0.8125rem;
+    margin: var(--space-1) 0 0;
+    display: flex;          /* 避免圖示與文字對齊跑位 */
+    align-items: center;
+    gap: 0.25rem;           /* 圖示與錯誤訊息間距 */
+}
+
+.error::before {
+    content: "\26A0\FE0F ";          /* 或使用 Unicode: "\26A0\FE0F" */
+    font-size: 0.875rem;    /* 依需求微調圖示大小 */
+    line-height: 1;
 }

@@ -14,15 +14,21 @@ interface FieldErrorProps {
 }
 
 /**
- * 單一欄位的錯誤訊息。
+ * 單一欄位下方的紅字錯誤訊息。
  *
- * TODO(你來寫)：
+ * 【影響畫面】
+ *   新增頁、編輯頁的表單。例如送出後後端回「底片名稱不可為空」，
+ *   這句話會出現在「底片名稱」輸入框正下方；沒有錯誤時什麼都不顯示。
+ *   由 FilmRollForm 在每個欄位下面放一個：
+ *   `<FieldError fieldId="filmName" message={fieldErrors.filmName} />`
  *
- * 1. 沒有 message 時回 `null`。
- *    ⚠️ 不要回一個空的 `<p>` 然後用 CSS 藏起來 ——
- *    螢幕閱讀器仍可能讀到它，而且版面會有莫名的空隙。
+ * 【會用到】只有 JSX 與 `styles.error`（FieldError.module.css），不需要任何 hook。
  *
- * 2. 有 message 時：
+ * 【步驟】
+ * 1. `if (!message) return null`
+ *    不要回一個空的 `<p>` 再用 CSS 藏起來：螢幕閱讀器可能還是會讀到，版面也會多一塊空白。
+ *
+ * 2. 有訊息時回傳：
  *    ```tsx
  *    return (
  *      <p id={`${fieldId}-error`} className={styles.error} role="alert">
@@ -31,19 +37,19 @@ interface FieldErrorProps {
  *    )
  *    ```
  *
- * 三個細節值得知道為什麼：
- *
- * - `id={`${fieldId}-error`}`：輸入框那邊要寫
- *   `aria-describedby={error ? `${fieldId}-error` : undefined}`，
- *   兩邊的 id 必須對得起來。這個命名規則請保持一致。
- *
- * - `role="alert"`：讓螢幕閱讀器在訊息出現時**立即朗讀**，
- *   而不是等使用者自己 tab 過去才發現。送出表單後跳出的錯誤需要這個。
- *
- * - 顏色不能是唯一的訊號。紅字對色盲使用者可能與一般文字無異，
- *   所以訊息本身要講清楚問題（後端的中文訊息已經做到了），
- *   CSS 裡也建議加一個 `⚠` 之類的符號或左邊框。
+ * 【為什麼要這三個屬性】
+ * - `id={`${fieldId}-error`}`：表單的輸入框會寫 `aria-describedby="filmName-error"` 指向這裡，
+ *   螢幕閱讀器才知道這句錯誤在講哪個欄位。兩邊的命名規則（`欄位名-error`）必須一致。
+ * - `role="alert"`：訊息一出現就朗讀，不用等使用者自己移到這裡才發現。
+ * - `className={styles.error}`：記得在 FieldError.module.css 的 `.error::before` 加一個 `⚠`，
+ *   讓錯誤不只靠紅色傳達，色盲使用者也看得出來。
  */
 export default function FieldError({ message, fieldId }: FieldErrorProps) {
-  throw new Error(`TODO: 實作 FieldError（${fieldId}: ${message ?? '無錯誤'}）`)
+  if (!message) return null
+  return (
+    <p id={`${fieldId}-error`} className={styles.error} role="alert"
+    >
+      {message}
+    </p>
+  )
 }

@@ -9,116 +9,163 @@ import type {
 } from '../types/filmRoll'
 
 /**
- * 寫入操作（新增 / 更新 / 刪除）。
+ * 寫入操作（新增 / 更新 / 刪除）的三支 hook。
  *
- * 三支分開 export 而不是包成一個大 hook：
- * 新增頁只需要 create，詳情頁只需要 update + delete。
- * 綁在一起會讓每個頁面都訂閱到用不到的 mutation 狀態。
+ * ── 在網站上的位置 ──
  *
- * ── 共通課題：寫入成功後，怎麼讓畫面上的舊資料更新？──
+ *   useCreateFilmRoll → 「裝新的一卷」頁（/film-rolls/new）按下「建立卷期」
+ *   useUpdateFilmRoll → 詳情頁的「推進狀態」按鈕、編輯頁按下「儲存變更」
+ *   useDeleteFilmRoll → 詳情頁的「刪除」按鈕
  *
- * TanStack Query **不會**自己知道「你剛剛 POST 的東西影響了哪些 query」。
- * 這件事必須你明確告訴它，有兩種手段：
+ * 這三支本身不畫任何畫面，只負責「送出請求」與「成功後讓畫面上的舊資料更新」。
+ * 寫完這個檔案畫面不會有變化，要等頁面接上才看得到效果。
  *
- * (a) `queryClient.invalidateQueries({ queryKey })`
- *     把符合前綴的快取標記為過期，畫面上正在用的會自動重抓。
- *     最簡單、最不會錯，代價是多一趟網路來回。**先用這個。**
+ * ── 共通觀念：寫入成功後，列表為什麼會自動更新？──
  *
- * (b) `queryClient.setQueryData(queryKey, newData)`
- *     直接把新資料寫進快取，不重抓。快，但你得自己保證寫進去的形狀
- *     跟後端會回的一模一樣 —— 例如後端算出來的 `updatedAt`，你猜不到。
- *     猜錯就會出現「畫面顯示的跟資料庫不一致」，而且不會有任何錯誤訊息。
+ * TanStack Query 不知道你的 POST / PUT / DELETE 影響了哪些資料，
+ * 要在 `onSuccess` 裡用 queryClient 明確告訴它：
  *
- * 新手常見的錯誤是一上手就追求 (b) 的「樂觀更新」，結果花大量時間 debug
- * 快取與真實資料的不一致。(a) 在這個規模下完全夠用。
- */
-
-/**
- * 新增卷期。
+ *   queryClient.invalidateQueries({ queryKey })  標記過期 → 畫面上正在用的會自動重抓（最常用）
+ *   queryClient.setQueryData(queryKey, data)     直接寫進快取、不重抓（只用在「資料是後端剛回傳的」時候）
+ *   queryClient.removeQueries({ queryKey })      把快取整個刪掉（刪除資料時用）
  *
- * TODO(你來寫)：
+ * 會用到的 key 都在 `hooks/queryKeys.ts`：
+ *
+ *   filmRollKeys.lists()     所有列表（列表頁用的那些，不分篩選條件）
+ *   filmRollKeys.detail(id)  某一卷的詳情（詳情頁、編輯頁用的）
+ *
+ * 三支 hook 的骨架都一樣：
  *
  * ```ts
  * const queryClient = useQueryClient()
  * return useMutation({
- *   mutationFn: createFilmRoll,
- *   onSuccess: (created) => {
- *     // 1. 所有列表都可能因為多了一筆而改變 → 失效 filmRollKeys.lists()
- *     // 2. 順手把新資料塞進 detail 快取，這樣馬上跳轉到詳情頁就不用再抓一次：
- *     //    queryClient.setQueryData(filmRollKeys.detail(created.id), created)
- *     //    （這裡用 setQueryData 是安全的 —— 資料是後端剛回的，不是你猜的）
- *   },
+ *   mutationFn: ...,                          // 真正打 API 的函式（從 api/filmRolls.ts 來）
+ *   onSuccess: (data, variables) => { ... },  // data = 後端回傳的內容；variables = 呼叫 mutate() 時傳的參數
  * })
  * ```
+ */
+
+/**
+ * 新增一卷。
  *
- * 注意 `onSuccess` 要不要 `return` 那個 Promise：
- * `invalidateQueries` 回傳 Promise。若你 `await` 它，mutation 的 `isPending`
- * 會一直到重抓完成才變 false（按鈕的 loading 狀態會涵蓋重抓）。
- * 不 await 則按鈕先恢復、列表稍後才更新。兩種體驗都合理，自己選一個。
+ * 【影響畫面】
+ *   新增頁按下「建立卷期」→ 成功後跳到新卷期的詳情頁；
+ *   回到列表時會看到多了一張卡片。
+ *
+ * 【會用到】（全部已 import）
+ *   - useQueryClient()、useMutation()        @tanstack/react-query
+ *   - createFilmRoll(body)                   api/filmRolls.ts
+ *   - filmRollKeys.lists()、filmRollKeys.detail(id)
+ *
+ * 【步驟】
+ * 1. `const queryClient = useQueryClient()`
+ * 2. `return useMutation({ mutationFn: createFilmRoll, onSuccess: (created) => { ... } })`
+ *    `createFilmRoll` 剛好只收一個參數（body），可以直接傳，不用再包一層箭頭函式。
+ * 3. onSuccess 收到的 `created` 是後端建好的那一卷，做兩件事：
+ *    a. `queryClient.invalidateQueries({ queryKey: filmRollKeys.lists() })`
+ *       → 列表多了一筆，所有列表的快取都要重抓
+ *    b. `queryClient.setQueryData(filmRollKeys.detail(created.id), created)`
+ *       → 新增成功後頁面會跳到詳情頁，先把資料放進快取，詳情頁就不用再等一次載入。
+ *         這裡可以用 setQueryData，是因為資料是後端剛回傳的，不是自己猜的。
+ *
+ * 【可以想一下】onSuccess 裡要不要寫 `return queryClient.invalidateQueries(...)`？
+ *   有 return：按鈕的「儲存中…」會持續到列表重抓完才結束。
+ *   沒 return：按鈕先恢復，列表稍後才更新。兩種都可以，自己選一種。
  */
 export function useCreateFilmRoll(): UseMutationResult<
   FilmRollResponse,
   Error,
   CreateFilmRollRequest
 > {
-  throw new Error('TODO: 實作 useCreateFilmRoll')
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: createFilmRoll,
+    onSuccess: (created) => {
+      queryClient.setQueryData(filmRollKeys.detail(created.id), created)
+      return queryClient.invalidateQueries({ queryKey: filmRollKeys.lists() })
+    },
+  })
 }
 
-/**
- * 更新卷期。
- *
- * TODO(你來寫)：
- *
- * mutationFn 只吃**一個**參數，但 update 需要 id 和 body 兩個。
- * 標準做法是把它們包成一個物件：
- *
- * ```ts
- * mutationFn: ({ id, body }: UpdateFilmRollVariables) => updateFilmRoll(id, body),
- * ```
- *
- * onSuccess 要失效兩處：
- *   - `filmRollKeys.detail(id)` —— 這一筆變了
- *   - `filmRollKeys.lists()` —— 列表上顯示的內容（狀態、名稱）也變了
- *
- * 想一下：如果只失效 detail 會發生什麼？
- * （提示：改完狀態按返回，列表上那張卡片還是舊的 badge）
- *
- * 呼叫端會拿到什麼錯誤：
- *   - 400 → 欄位或跨欄位規則錯，用 `toFieldErrors` 攤回表單
- *   - 409 → 狀態逆向流轉，這不是欄位錯，要用整體訊息呈現
- *   - 404 → 這筆在你編輯時被刪了，該把人導回列表
- */
+/** `useUpdateFilmRoll` 的 `mutate()` 參數：要更新哪一卷（id）、更新成什麼（body）。 */
 export interface UpdateFilmRollVariables {
   id: number
   body: UpdateFilmRollRequest
 }
 
+/**
+ * 更新一卷（PUT，整份取代）。
+ *
+ * 【影響畫面】
+ *   - 詳情頁按「推進到：沖洗中」這類按鈕 → 狀態 badge 馬上改變
+ *   - 編輯頁按「儲存變更」→ 跳回詳情頁看到新內容
+ *   回到列表時，卡片上的名稱、狀態也要是新的。
+ *
+ * 【會用到】（全部已 import）
+ *   - useQueryClient()、useMutation()
+ *   - updateFilmRoll(id, body)               api/filmRolls.ts
+ *   - filmRollKeys.detail(id)、filmRollKeys.lists()
+ *
+ * 【步驟】
+ * 1. `const queryClient = useQueryClient()`
+ * 2. mutationFn 只能收「一個」參數，但 updateFilmRoll 要 id 和 body 兩個。
+ *    所以呼叫端傳一個 `{ id, body }` 物件（型別就是上面的 UpdateFilmRollVariables），這裡再拆開：
+ *    `mutationFn: ({ id, body }: UpdateFilmRollVariables) => updateFilmRoll(id, body)`
+ * 3. onSuccess 的第二個參數就是呼叫端傳的 `{ id, body }`，拿 id 去失效兩處：
+ *    `onSuccess: (_updated, { id }) => { ... }`
+ *    a. `queryClient.invalidateQueries({ queryKey: filmRollKeys.detail(id) })`  → 詳情頁顯示的這一卷
+ *    b. `queryClient.invalidateQueries({ queryKey: filmRollKeys.lists() })`     → 列表卡片上的名稱、狀態
+ *    只寫 a 的話：推進狀態後按「回到列表」，卡片上還是舊的 badge。
+ *
+ * 【呼叫端會收到的錯誤】（這支 hook 不用處理，由頁面處理）
+ *   400 → 欄位填錯 → 頁面用 `toFieldErrors(error)` 顯示在欄位下方
+ *   409 → 狀態不能倒退（例如已歸檔改回拍攝中）→ 頁面用 ErrorBanner 顯示
+ *   404 → 編輯到一半，這卷在別的分頁被刪了
+ */
 export function useUpdateFilmRoll(): UseMutationResult<
   FilmRollResponse,
   Error,
   UpdateFilmRollVariables
 > {
-  throw new Error('TODO: 實作 useUpdateFilmRoll')
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, body }: UpdateFilmRollVariables) => updateFilmRoll(id, body),
+    onSuccess: (_updated, { id }) => {
+      queryClient.invalidateQueries({ queryKey: filmRollKeys.detail(id) })
+      queryClient.invalidateQueries({ queryKey: filmRollKeys.lists() })
+    },
+  })
 }
 
 /**
- * 刪除卷期。
+ * 刪除一卷。
  *
- * TODO(你來寫)：
+ * 【影響畫面】詳情頁按「刪除」→ 確認後跳回列表，那張卡片消失。
  *
- * ```ts
- * mutationFn: deleteFilmRoll,
- * onSuccess: (_data, id) => {
- *   // 第二個參數是當初傳給 mutate() 的 variables，這裡就是 id。
- *   // 刪除後 detail 快取該整個移除而非失效：
- *   //   queryClient.removeQueries({ queryKey: filmRollKeys.detail(id) })
- *   // 用 invalidate 的話，那個 key 還在快取裡、且被標記為過期，
- *   // 若還有元件掛在上面就會立刻重抓 → 拿到 404。
- *   // 已經不存在的東西，要的是「忘掉」，不是「重新確認」。
- *   // 然後失效 lists()。
- * },
- * ```
+ * 【會用到】（全部已 import）
+ *   - useQueryClient()、useMutation()
+ *   - deleteFilmRoll(id)                     api/filmRolls.ts
+ *   - filmRollKeys.detail(id)、filmRollKeys.lists()
+ *
+ * 【步驟】
+ * 1. `const queryClient = useQueryClient()`
+ * 2. `mutationFn: deleteFilmRoll`（只收 id 一個參數，可以直接傳）
+ * 3. `onSuccess: (_data, id) => { ... }`
+ *    第一個參數是後端回傳的內容：刪除回 204 沒有內容，用不到，所以取名 `_data`。
+ *    第二個參數是呼叫 `mutate(id)` 時傳的 id。
+ *    a. `queryClient.removeQueries({ queryKey: filmRollKeys.detail(id) })`
+ *       → 這卷已經不存在，要「刪掉快取」而不是 invalidate。
+ *         用 invalidate 的話，還開著的詳情頁會立刻重抓，結果拿到 404。
+ *    b. `queryClient.invalidateQueries({ queryKey: filmRollKeys.lists() })`
+ *       → 列表少了一筆
  */
 export function useDeleteFilmRoll(): UseMutationResult<void, Error, number> {
-  throw new Error('TODO: 實作 useDeleteFilmRoll')
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: deleteFilmRoll,
+    onSuccess: (_data, id) => {
+      queryClient.removeQueries({ queryKey: filmRollKeys.detail(id) })
+      queryClient.invalidateQueries({ queryKey: filmRollKeys.lists() })
+    },
+  })
 }

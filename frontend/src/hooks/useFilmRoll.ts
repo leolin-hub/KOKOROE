@@ -21,11 +21,17 @@ import type { FilmRollResponse } from '../types/filmRoll'
  * 要嘛用 `isLoading`（它是 `isPending && isFetching`，正確反映「真的在等」）。
  *
  * @param id 卷期 id。允許收到 NaN —— 由這支 hook 負責擋，而不是要求每個呼叫端自己檢查。
+ * @param options.enabled 呼叫端要暫停查詢時傳 false。
+ *   詳情頁在刪除成功後用它：跳回列表前頁面還會再 render 一次，
+ *   這時快取已被移除，不暫停的話會重抓一次、拿到 404。
  */
-export function useFilmRoll(id: number): UseQueryResult<FilmRollResponse, Error> {
+export function useFilmRoll(
+  id: number,
+  options: { enabled?: boolean } = {},
+): UseQueryResult<FilmRollResponse, Error> {
   return useQuery({
     queryKey: filmRollKeys.detail(id),
     queryFn: () => getFilmRoll(id),
-    enabled: Number.isInteger(id) && id > 0
+    enabled: (options.enabled ?? true) && Number.isInteger(id) && id > 0,
   })
 }
