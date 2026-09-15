@@ -171,4 +171,4 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 - ✅ `useCreateFilmRoll` / `useUpdateFilmRoll` / `useDeleteFilmRoll`（成功後失效列表與詳情快取）
 - ✅ `FieldError`、`FilmRollForm`（新增與編輯共用，輸入限制與後端驗證一致）
 - ✅ 新增頁、詳情頁（推進狀態、刪除）、編輯頁；`lib/toUpdateRequest.ts`
-- ⏳ 收尾：`noUnusedLocals` / `noUnusedParameters` 改回 `true`、確認 `npm run build` 與 `npm run lint` 通過
+- ✅ 收尾：`noUnusedLocals` / `noUnusedParameters` 改回 `true`、清除骨架的 TODO 與 placeholder、`npm run build` 與 `npm run lint` 通過

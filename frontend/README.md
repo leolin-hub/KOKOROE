@@ -154,10 +154,10 @@ curl -X POST http://localhost:8080/api/v1/film-rolls \
 
 ### 收尾
 
-- [ ] 把 `tsconfig.app.json` 的 `noUnusedLocals` / `noUnusedParameters` 改回 `true`，
+- [x] 把 `tsconfig.app.json` 的 `noUnusedLocals` / `noUnusedParameters` 改回 `true`，
       清掉沒用到的 import
-- [ ] 刪掉各頁面裡的 `.placeholder` 區塊與對應 CSS
-- [ ] `npm run build` 與 `npm run lint` 都要綠
+- [x] 刪掉各頁面裡的 `.placeholder` 區塊與對應 CSS
+- [x] `npm run build` 與 `npm run lint` 都要綠
 
 ---
 
