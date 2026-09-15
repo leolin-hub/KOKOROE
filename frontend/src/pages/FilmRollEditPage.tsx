@@ -10,91 +10,75 @@ import styles from './FilmRollFormPage.module.css'
 /**
  * 編輯卷期頁。路由 `/film-rolls/:id/edit`。
  *
- * 與新增頁的差別在於：要先把既有資料讀出來當表單初始值。
+ * 【影響畫面】
+ *   詳情頁按「編輯」進來的頁面：和新增頁是同一個表單，但欄位預先填好這卷目前的資料。
+ *   按「儲存變更」→ 成功就跳回詳情頁；失敗就在表單上顯示錯誤。
  *
- * ══════════════════════════════════════════════════
- * TODO(你來寫)
- * ══════════════════════════════════════════════════
+ * 【會用到】
+ *   - useParams()、useNavigate()                 react-router（已 import）
+ *   - useFilmRoll(id)                            hooks/useFilmRoll.ts（已 import）：讀出目前的資料
+ *   - useUpdateFilmRoll()                        hooks/useFilmRollMutations.ts（已 import）
+ *   - FilmRollForm、ErrorBanner                  components（已 import）
+ *   - toFieldErrors(error)                       api/problem.ts（已 import）
+ *   - 要自己加的 import：
+ *       `ApiError`         → 加到 api/problem 那行
+ *       `toUpdateRequest`  → `import { toUpdateRequest } from '../lib/toUpdateRequest'`（做詳情頁時建立的）
+ *   - styles.page / back / title                 FilmRollFormPage.module.css
  *
- * ### 步驟 1：讀出目前的資料
+ * 【步驟】
+ * 1. 所有 hook 先呼叫（一定要在任何 return 之前）：
+ *    ```ts
+ *    const { id } = useParams<{ id: string }>()
+ *    const rollId = Number(id)
+ *    const navigate = useNavigate()
+ *    const { data: roll, isPending, isError, error } = useFilmRoll(rollId)
+ *    const updateMutation = useUpdateFilmRoll()
+ *    ```
  *
- * ```ts
- * const { id } = useParams<{ id: string }>()
- * const rollId = Number(id)
- * const { data: roll, isLoading, isError, error } = useFilmRoll(rollId)
- * ```
+ * 2. 和詳情頁一樣，依序 return 掉還不能顯示表單的情況：
+ *    a. `if (!Number.isInteger(rollId) || rollId <= 0)` → 「網址不正確」（要放在 isPending 之前）
+ *    b. `if (isPending)` → 「載入中…」
+ *    c. `if (isError)` → 404 顯示「這卷不存在」，其他用 `<ErrorBanner error={error} />`
  *
- * ⚠️ **不要**在資料還沒到之前就 render `<FilmRollForm>`。
- *    表單的 useState 初始值只會在第一次 mount 時生效
- *    —— 之後 props 變了，state **不會**跟著更新。
- *    若你先用空值 render，資料到了畫面還是空的，
- *    而且這個 bug 看起來像「API 沒回資料」，會讓你查錯方向。
+ *    ⚠️ 資料還沒到之前「絕對不要」render FilmRollForm。
+ *       表單的 useState 只在第一次出現時採用 initialValues；
+ *       如果先用空值 render，資料到了表單還是空的，看起來會像「API 沒回資料」，很難查。
  *
- *    正確做法是在 `isLoading` 時顯示載入中，
- *    等 `roll` 真的存在了才 render 表單。
- *    這也是為什麼 `FilmRollForm` 的 `initialValues` 設計成 required ——
- *    型別逼你先處理 loading，而不是丟一個 undefined 進去。
+ * 3. 送出：
+ *    ```ts
+ *    function handleSubmit(values: UpdateFilmRollRequest) {
+ *      updateMutation.mutate(
+ *        { id: rollId, body: values },
+ *        { onSuccess: () => navigate(`/film-rolls/${rollId}`) },
+ *      )
+ *    }
+ *    ```
  *
- *    （另一種解法是給 Form 加 `key={roll.id}` 強制重建，
- *    但「等資料到了再 render」更直白，也不需要理解 key 的重建語意。）
+ * 4. 決定錯誤要顯示在哪裡（寫法和新增頁一樣）：
+ *    ```ts
+ *    const updateError = updateMutation.error
+ *    const showBanner =
+ *      updateError !== null && !(updateError instanceof ApiError && updateError.hasFieldErrors)
+ *    ```
+ *    - 400 有 errors 陣列 → 欄位下方
+ *    - 409 狀態不能倒退 → banner。例如這卷在另一個分頁已經被改成「已歸檔」，你這裡還想存成「拍攝中」
+ *    - 其他 → banner
+ *    409 的訊息文字不用自己寫：ErrorBanner 內部用 toUserMessage 顯示後端回的說明。
  *
- * ### 步驟 2：轉成表單初始值
- *
- * `FilmRollResponse` 不能直接當 `UpdateFilmRollRequest` 用 ——
- * 多了 id / createdAt / updatedAt 三個欄位，帶出去就是 400。
- * 需要一個轉換：
- *
- * ```ts
- * const initialValues: UpdateFilmRollRequest = {
- *   filmName: roll.filmName,
- *   brand: roll.brand,
- *   iso: roll.iso,
- *   format: roll.format,
- *   pushPullStops: roll.pushPullStops,
- *   loadedAt: roll.loadedAt,
- *   finishedAt: roll.finishedAt,
- *   cameraName: roll.cameraName,
- *   lensName: roll.lensName,
- *   notes: roll.notes,
- *   status: roll.status,
- * }
- * ```
- *
- * 💡 詳情頁推進狀態時需要**一模一樣**的轉換。
- *    兩邊都寫一次之後，把它抽成 `lib/toUpdateRequest.ts`。
- *    先重複一次再抽 —— 你會更清楚這個函式的邊界在哪。
- *
- * ### 步驟 3：送出
- *
- * ```ts
- * const navigate = useNavigate()
- * const updateMutation = useUpdateFilmRoll()
- *
- * function handleSubmit(values: UpdateFilmRollRequest) {
- *   updateMutation.mutate(
- *     { id: rollId, body: values },
- *     { onSuccess: () => navigate(`/film-rolls/${rollId}`) },
- *   )
- * }
- * ```
- *
- * ### 步驟 4：處理 409
- *
- * 編輯頁比新增頁多一種錯誤：狀態逆向流轉的 **409 Conflict**。
- *
- * 它跟 400 的差別要在 UI 上反映出來：
- *   400 = 「你填的內容有問題」→ 指向欄位，請使用者修正
- *   409 = 「你填的沒問題，但這個操作對這筆資料不成立」
- *        → 例如卷期已經 ARCHIVED，你想改回 SHOOTING
- *        → 訊息該是「已歸檔的卷期無法改回拍攝中」，而不是紅框框住 status 欄位
- *
- * 判斷：`error instanceof ApiError && error.status === 409`
- *
- * 💡 更好的做法是讓這件事在 UI 上不可能發生 ——
- *    表單的狀態下拉選單只列出「目前狀態及其之後」的選項。
- *    那 409 什麼時候還會出現？想一下：
- *    如果你開著編輯頁，同時在另一個分頁把它改成 ARCHIVED，會怎樣？
- *    這就是為什麼即使 UI 擋了，錯誤處理還是不能省。
+ * 5. 把下面的 `.placeholder` 區塊換成（「← 回到卷期」和標題保留）：
+ *    ```tsx
+ *    {showBanner && <ErrorBanner error={updateError} />}
+ *    <FilmRollForm
+ *      initialValues={toUpdateRequest(roll)}
+ *      onSubmit={handleSubmit}
+ *      isSubmitting={updateMutation.isPending}
+ *      fieldErrors={toFieldErrors(updateError)}
+ *      submitLabel="儲存變更"
+ *      minStatus={roll.status}
+ *    />
+ *    ```
+ *    - `toUpdateRequest(roll)`：把後端回傳的卷期轉成表單格式，拿掉 id、createdAt、updatedAt。
+ *    - `minStatus={roll.status}`：狀態下拉只列出目前及之後的狀態，UI 上就選不到倒退的選項。
  */
 export default function FilmRollEditPage() {
   const { id } = useParams<{ id: string }>()

@@ -9,46 +9,65 @@ import styles from './FilmRollFormPage.module.css'
 /**
  * 新增卷期頁。路由 `/film-rolls/new`。
  *
- * 這一頁很薄 —— 表單的狀態與欄位都在 `FilmRollForm` 裡。
- * 這裡只負責三件事：呼叫 mutation、把錯誤轉成表單看得懂的形狀、成功後導頁。
+ * 【影響畫面】
+ *   列表頁右上角「裝新的一卷」點進來的頁面。
+ *   填完表單按「建立卷期」→ 成功就跳到這卷的詳情頁；失敗就在表單上顯示錯誤。
  *
- * 為什麼要這樣切：`FilmRollForm` 同時被新增頁與編輯頁使用，
- * 但兩者的「送出後要做什麼」完全不同（一個導到新資源，一個留在原地）。
- * 把差異留在頁面、共用的部分放元件，才不會在 Form 裡長出
- * `if (mode === 'create')` 這種分支。
+ * 【這一頁只做三件事】表單的欄位與狀態都在 FilmRollForm 裡，這裡只負責：
+ *   1. 呼叫新增 API
+ *   2. 把錯誤交給表單或 banner 顯示
+ *   3. 成功後跳頁
  *
- * ══════════════════════════════════════════════════
- * TODO(你來寫)
- * ══════════════════════════════════════════════════
+ * 【會用到】
+ *   - useNavigate()                      react-router（已 import）：跳頁
+ *   - useCreateFilmRoll()                hooks/useFilmRollMutations.ts（已 import）
+ *   - FilmRollForm                       components/FilmRollForm.tsx（已 import）
+ *   - emptyFormValues()                  components/FilmRollForm.tsx（要自己加 import）：
+ *                                        `import FilmRollForm, { emptyFormValues } from '../components/FilmRollForm'`
+ *   - toFieldErrors(error)               api/problem.ts（已 import）：把 400 的欄位錯誤轉成 `{ filmName: '...' }`
+ *   - ApiError                           api/problem.ts（要自己加 import）：判斷要不要顯示 banner
+ *   - ErrorBanner                        components/ErrorBanner.tsx（已 import）
+ *   - styles.page / back / title         FilmRollFormPage.module.css
  *
- * ```ts
- * const navigate = useNavigate()
- * const createMutation = useCreateFilmRoll()
+ * 【步驟】
+ * 1. 最上面先呼叫 hook：
+ *    ```ts
+ *    const navigate = useNavigate()
+ *    const createMutation = useCreateFilmRoll()
+ *    ```
  *
- * function handleSubmit(values: CreateFilmRollRequest) {
- *   createMutation.mutate(values, {
- *     onSuccess: (created) => navigate(`/film-rolls/${created.id}`),
- *   })
- * }
- * ```
+ * 2. 送出時呼叫 mutate，成功就跳到新卷期的詳情頁：
+ *    ```ts
+ *    function handleSubmit(values: CreateFilmRollRequest) {
+ *      createMutation.mutate(values, {
+ *        onSuccess: (created) => navigate(`/film-rolls/${created.id}`),
+ *      })
+ *    }
+ *    ```
  *
- * 然後把這三樣傳給 `<FilmRollForm>`：
- *   - `onSubmit={handleSubmit}`
- *   - `isSubmitting={createMutation.isPending}` —— 讓按鈕在送出期間 disabled。
- *     ⚠️ 這不只是體驗問題：沒有它，使用者連點三下就會新增三卷。
- *   - `fieldErrors={toFieldErrors(createMutation.error)}` —— 把後端 400 的
- *     errors 陣列攤回各欄位下方
+ * 3. 決定錯誤要顯示在哪裡：
+ *    ```ts
+ *    const error = createMutation.error
+ *    const showBanner = error !== null && !(error instanceof ApiError && error.hasFieldErrors)
+ *    ```
+ *    - 400 而且有 errors 陣列（例如「底片名稱不可為空」）→ 顯示在欄位下方，不顯示 banner
+ *    - 400 但沒有 errors 陣列（例如「拍完日期不可早於裝片日期」，牽涉兩個欄位）→ banner
+ *    - 500、網路斷線 → banner
  *
- * 關於錯誤的雙軌呈現（想清楚這件事，它是表單體驗的關鍵）：
- *
- *   400 validation-failed      → 有 `errors` 陣列 → 攤到欄位下方
- *   400 business-rule-violated → **沒有** errors 陣列（例如「完成日期不得早於裝片日期」）
- *                                → 這種跨欄位錯誤沒有單一歸屬的欄位，
- *                                  要用 `<ErrorBanner>` 在表單頂端整體呈現
- *   500 / 網路錯誤              → 同樣走 ErrorBanner
- *
- * 所以兩種呈現方式都需要，不是二選一。
- * 判斷依據：`createMutation.error` 若 `hasFieldErrors` 為 true 走欄位，否則走 banner。
+ * 4. 把下面的 `.placeholder` 區塊整段換成（「← 回到列表」和標題保留）：
+ *    ```tsx
+ *    {showBanner && <ErrorBanner error={error} />}
+ *    <FilmRollForm
+ *      initialValues={emptyFormValues()}
+ *      onSubmit={handleSubmit}
+ *      isSubmitting={createMutation.isPending}
+ *      fieldErrors={toFieldErrors(error)}
+ *      submitLabel="建立卷期"
+ *    />
+ *    ```
+ *    - `isSubmitting={createMutation.isPending}`：送出期間按鈕 disabled，防止連點建立好幾卷。
+ *    - `emptyFormValues()` 每次 render 都會重算沒關係，表單的 useState 只在第一次採用它。
+ *    - 這裡不傳 `minStatus`，新增時四個狀態都能選。
  */
 export default function FilmRollCreatePage() {
   return (

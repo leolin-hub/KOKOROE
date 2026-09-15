@@ -10,102 +10,160 @@ import styles from './FilmRollDetailPage.module.css'
 /**
  * 卷期詳情頁。路由 `/film-rolls/:id`。
  *
- * ══════════════════════════════════════════════════
- * TODO(你來寫)
- * ══════════════════════════════════════════════════
+ * 【影響畫面】列表頁點一張卡片進來的頁面，由上到下：
+ *   ← 回到列表
+ *   標題（Kodak Portra 400）＋ 狀態 badge
+ *   欄位清單：ISO、規格、增減感、裝片日期、拍完日期、相機、鏡頭、備註
+ *   狀態推進按鈕（例如「推進到：沖洗中」）＋「編輯」連結
+ *   刪除按鈕（危險區）
+ *   建立時間 / 最後更新時間
  *
- * ### 步驟 1：拿到 id
+ * 【會用到】
+ *   - useParams()、useNavigate()                      react-router（已 import）
+ *   - useFilmRoll(id)                                 hooks/useFilmRoll.ts（已 import）：讀資料
+ *   - useUpdateFilmRoll()、useDeleteFilmRoll()        hooks/useFilmRollMutations.ts（已 import）
+ *   - StatusBadge、ErrorBanner                        components（已 import）
+ *   - formatRollTitle、formatDate、formatInstant、formatPushPull   lib/format.ts（已 import）
+ *   - STATUS_ORDER、STATUS_LABELS                     lib/constants.ts（已 import）
+ *   - 要自己加的 import：
+ *       `EMPTY_PLACEHOLDER`  → 加到 lib/format 那行，空欄位顯示「—」
+ *       `FORMAT_OPTIONS`     → 加到 lib/constants 那行，規格顯示「135（35mm）」
+ *       `ApiError`           → `import { ApiError } from '../api/problem'`
+ *       `FilmRollStatus`     → `import type { FilmRollStatus } from '../types/filmRoll'`
+ *       `toUpdateRequest`    → 步驟 4 要新建的 `lib/toUpdateRequest.ts`
+ *   - styles.page / back / header / title / fields / fieldLabel / fieldValue / actions / dangerZone / meta
+ *
+ * ══════════════════════════════════════════════════
+ * 步驟 1：所有 hook 先呼叫（一定要在任何 return 之前）
+ * ══════════════════════════════════════════════════
  *
  * ```ts
  * const { id } = useParams<{ id: string }>()
  * const rollId = Number(id)
- * ```
- *
- * ⚠️ `useParams` 回傳的值型別是 `string | undefined`，而且**永遠**可能是任何字串。
- *    `/film-rolls/abc` 是一個合法的路由命中，`Number('abc')` 是 NaN。
- *    這就是 `useFilmRoll` 裡要求你寫 `enabled` 的原因。
- *    這一頁也該自己處理：若 `!Number.isInteger(rollId)`，
- *    直接顯示「網址不正確」，而不是送一個註定失敗的請求。
- *
- * ### 步驟 2：讀資料
- *
- * ```ts
- * const { data: roll, isLoading, isError, error } = useFilmRoll(rollId)
- * ```
- *
- * 404 要特別處理。`error instanceof ApiError && error.status === 404`
- * 該顯示「這卷不存在，可能已被刪除」而不是通用錯誤 —— 使用者需要知道
- * 這是「東西沒了」而不是「系統壞了」，因為後者會讓人一直重試。
- *
- * ### 步驟 3：刪除
- *
- * ```ts
  * const navigate = useNavigate()
+ * const { data: roll, isPending, isError, error } = useFilmRoll(rollId)
+ * const updateMutation = useUpdateFilmRoll()
  * const deleteMutation = useDeleteFilmRoll()
+ * ```
+ *
+ * ══════════════════════════════════════════════════
+ * 步驟 2：依序處理「還不能顯示內容」的情況，每種都直接 return
+ * ══════════════════════════════════════════════════
+ *
+ * 每個 return 的畫面都要包含「← 回到列表」，使用者才回得去。
+ *
+ * a. 網址上的 id 不是正整數（例如 /film-rolls/abc）：
+ *    `if (!Number.isInteger(rollId) || rollId <= 0)` → 顯示「網址不正確」
+ *    ⚠️ 這個判斷一定要放在 isPending 之前：id 不合法時 useFilmRoll 不會發請求，
+ *       isPending 會永遠是 true，畫面會一直卡在「載入中」。
+ *
+ * b. `if (isPending)` → 顯示「載入中…」
+ *
+ * c. `if (isError)`：
+ *    - `error instanceof ApiError && error.status === 404` → 顯示「這卷不存在，可能已被刪除」
+ *    - 其他錯誤 → `<ErrorBanner error={error} />`
+ *
+ * 走到這裡之後，TypeScript 已經知道 `roll` 一定有值。
+ *
+ * ══════════════════════════════════════════════════
+ * 步驟 3：顯示欄位
+ * ══════════════════════════════════════════════════
+ *
+ * 標題列：`<div className={styles.header}>` 裡放
+ *   `<h1 className={styles.title}>{formatRollTitle(roll.filmName, roll.brand)}</h1>` 和 `<StatusBadge status={roll.status} />`
+ *
+ * 欄位清單用 `<dl className={styles.fields}>`，每一欄是
+ *   `<dt className={styles.fieldLabel}>ISO</dt><dd className={styles.fieldValue}>{roll.iso}</dd>`
+ *
+ * 和列表卡片不同：詳情頁的選填欄位沒有值也要顯示那一列，值用「—」。
+ *   - 規格：`FORMAT_OPTIONS.find((o) => o.value === roll.format)?.label ?? roll.format`
+ *   - 增減感：`formatPushPull(roll.pushPullStops)`
+ *   - 裝片日期 / 拍完日期：`formatDate(roll.loadedAt)`、`formatDate(roll.finishedAt)`（undefined 會自動顯示「—」）
+ *   - 相機 / 鏡頭 / 備註：`roll.cameraName ?? EMPTY_PLACEHOLDER`
+ *   - 建立 / 更新時間：`formatInstant(roll.createdAt)`、`formatInstant(roll.updatedAt)`，放在頁面最下面的 `styles.meta`
+ *
+ * ══════════════════════════════════════════════════
+ * 步驟 4：推進狀態按鈕
+ * ══════════════════════════════════════════════════
+ *
+ * PUT 是「整份取代」，所以要把這卷的所有欄位帶齊再改 status。
+ * 先新建 `src/lib/toUpdateRequest.ts`（編輯頁也會用到同一個轉換）：
+ *
+ * ```ts
+ * import type { FilmRollResponse, UpdateFilmRollRequest } from '../types/filmRoll'
+ *
+ * export function toUpdateRequest(roll: FilmRollResponse): UpdateFilmRollRequest {
+ *   return {
+ *     filmName: roll.filmName,
+ *     brand: roll.brand,
+ *     iso: roll.iso,
+ *     format: roll.format,
+ *     pushPullStops: roll.pushPullStops,
+ *     loadedAt: roll.loadedAt,
+ *     finishedAt: roll.finishedAt,
+ *     cameraName: roll.cameraName,
+ *     lensName: roll.lensName,
+ *     notes: roll.notes,
+ *     status: roll.status,
+ *   }
+ * }
+ * ```
+ *
+ * ⚠️ 不能偷懶寫成 `{ ...roll }`：那會把 id、createdAt、updatedAt 一起送出去，
+ *    後端設了 fail-on-unknown-properties，會直接回 400。
+ *
+ * 然後在頁面裡（步驟 2 的 return 之後）：
+ *
+ * ```ts
+ * const baseRequest = toUpdateRequest(roll)
+ * const nextStatuses = STATUS_ORDER.slice(STATUS_ORDER.indexOf(roll.status) + 1)
+ *
+ * function handleAdvance(next: FilmRollStatus) {
+ *   updateMutation.mutate({ id: rollId, body: { ...baseRequest, status: next } })
+ * }
+ * ```
+ *
+ * - `nextStatuses` 只包含比目前更後面的狀態，已歸檔時是空陣列，就不會顯示任何推進按鈕。
+ *   按鈕：`nextStatuses.map((s) => <button key={s} type="button" onClick={() => handleAdvance(s)} disabled={updateMutation.isPending}>推進到：{STATUS_LABELS[s]}</button>)`
+ * - 為什麼先算出 `baseRequest` 而不是在 handleAdvance 裡直接用 `roll`：
+ *   TypeScript 在函式裡面會「忘記」roll 已經確認過有值，直接用會報「roll 可能是 undefined」。
+ *   baseRequest 的型別本身就不含 undefined，沒有這個問題。
+ *
+ * 編輯連結和推進按鈕放在一起：
+ *   `<div className={styles.actions}>` 裡放推進按鈕和 `<Link to={`/film-rolls/${rollId}/edit`}>編輯</Link>`
+ *
+ * ══════════════════════════════════════════════════
+ * 步驟 5：刪除
+ * ══════════════════════════════════════════════════
+ *
+ * ```ts
+ * const title = formatRollTitle(roll.filmName, roll.brand)
  *
  * function handleDelete() {
- *   // 先確認。用 window.confirm 起步完全可以 ——
- *   // 自己做 modal 是另一個題目，別在這裡分心。
- *   if (!window.confirm(`確定要刪除「${roll.filmName}」嗎？此動作無法復原。`)) return
- *
+ *   if (!window.confirm(`確定要刪除「${title}」嗎？此動作無法復原。`)) return
  *   deleteMutation.mutate(rollId, {
  *     onSuccess: () => navigate('/film-rolls', { replace: true }),
  *   })
  * }
  * ```
  *
- * ⚠️ 為什麼刪除後要用 `replace: true`：
- *    若用一般的 navigate，這一頁會留在瀏覽歷史裡。使用者按上一頁
- *    會回到一個已經不存在的資源 → 404。`replace` 把它從歷史中換掉。
+ * - 刪除按鈕放在 `<div className={styles.dangerZone}>` 裡，`disabled={deleteMutation.isPending}`。
+ * - `replace: true`：把詳情頁從瀏覽紀錄換掉，按上一頁才不會回到已經刪除的卷期（404）。
+ * - `window.confirm` 是瀏覽器內建的確認視窗，先用它就好，不用自己做彈出視窗。
+ * - hook 裡的 onSuccess 和這裡 mutate 的 onSuccess 兩個都會執行：
+ *   快取處理寫在 hook（每個頁面都需要），跳頁寫在這裡（只有這一頁需要）。
  *
- * 💡 `mutate` 的第二個參數也能放 `onSuccess`，與 hook 裡定義的那個
- *    **兩個都會執行**（hook 的先跑）。分工慣例是：
- *    快取失效寫在 hook 裡（每個呼叫端都需要），
- *    導頁寫在呼叫端（只有這一頁需要）。
+ * ══════════════════════════════════════════════════
+ * 步驟 6：推進或刪除失敗時的訊息
+ * ══════════════════════════════════════════════════
  *
- * ### 步驟 4：推進狀態（這一頁最有價值的部分）
- *
- * 做一排按鈕讓使用者把卷期往前推：已裝片 → 拍攝中 → 沖洗中 → 已歸檔。
- *
- * ```ts
- * const updateMutation = useUpdateFilmRoll()
- *
- * function handleAdvance(next: FilmRollStatus) {
- *   updateMutation.mutate({
- *     id: rollId,
- *     body: {
- *       // ⚠️ PUT 是整份取代，所以必須帶齊所有欄位，
- *       //    但**只能**帶 UpdateFilmRollRequest 有的欄位。
- *       //    絕對不要寫 `...roll` —— 那會混進 id / createdAt / updatedAt，
- *       //    後端的 fail-on-unknown-properties 會直接回 400。
- *       filmName: roll.filmName,
- *       brand: roll.brand,
- *       iso: roll.iso,
- *       format: roll.format,
- *       pushPullStops: roll.pushPullStops,
- *       loadedAt: roll.loadedAt,
- *       finishedAt: roll.finishedAt,
- *       cameraName: roll.cameraName,
- *       lensName: roll.lensName,
- *       notes: roll.notes,
- *       status: next,
- *     },
- *   })
- * }
+ * 放在按鈕上方：
+ * ```tsx
+ * {updateMutation.error && <ErrorBanner error={updateMutation.error} />}
+ * {deleteMutation.error && <ErrorBanner error={deleteMutation.error} />}
  * ```
  *
- * 💡 上面那段「手動抄十個欄位」很囉唆，而且新增欄位時容易漏。
- *    寫完之後，考慮把它抽成一支函式放到 `lib/`：
- *    `toUpdateRequest(roll: FilmRollResponse): UpdateFilmRollRequest`
- *    編輯頁也需要同一個轉換，抽出來就只有一處要維護。
- *    （先手寫一次再抽 —— 你會更清楚為什麼需要它。）
- *
- * 哪些按鈕該出現？狀態只能向前，所以只顯示 sequence 比目前大的。
- * 提示：`STATUS_ORDER.slice(STATUS_ORDER.indexOf(roll.status) + 1)`
- *
- * 這樣 UI 就在結構上不可能送出逆向請求。比「送出去讓後端擋」好得多 ——
- * 但後端的檢查依然必要，因為 API 不只有你的 UI 會呼叫。
- * 前端擋是為了體驗，後端擋是為了正確性。兩者不能互相取代。
+ * 最後把 `.placeholder` 區塊刪掉。
  */
 export default function FilmRollDetailPage() {
   const { id } = useParams<{ id: string }>()
