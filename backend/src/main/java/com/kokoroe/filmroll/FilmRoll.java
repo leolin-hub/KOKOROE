@@ -82,7 +82,7 @@ public class FilmRoll {
      * <p>{@code LAZY}：{@code @ManyToOne} 預設是 EAGER，每次載入卷期都會順便查相機。
      * 需要相機的查詢（例如列表）改在 Repository 用 {@code @EntityGraph} 明確一起抓。
      *
-     * <p>資料表裡舊的 {@code camera_name} 欄位已不再對應到實體，下一支 migration 會移除。
+     * <p>舊的 {@code camera_name} 字串欄位由 V2 搬進 {@code camera} 表，V3 已移除。
      */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "camera_id")
