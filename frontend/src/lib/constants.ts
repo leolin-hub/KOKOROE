@@ -1,3 +1,4 @@
+import type { CameraFormat } from '../types/camera'
 import type { FilmFormat, FilmRollStatus } from '../types/filmRoll'
 
 /**
@@ -33,6 +34,13 @@ export const FORMAT_OPTIONS: readonly { value: FilmFormat; label: string }[] = [
   { value: '135', label: '135（35mm）' },
   { value: '120', label: '120（中片幅）' },
 ]
+
+/** 相機片幅的顯示文字。 */
+export const CAMERA_FORMAT_LABELS: Record<CameraFormat, string> = {
+  '135': '135',
+  '120': '120',
+  'half-frame': '半格',
+}
 
 /**
  * 增減感的選項，-3 ~ +3。

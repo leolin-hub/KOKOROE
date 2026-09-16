@@ -204,7 +204,8 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 | CI：GitHub Actions（後端 `mvnw test`；前端 lint、型別檢查、build）與 Dependabot | ✅ 完成 |
 | 前端垂直切片（Vite + React + TS + TanStack Query） | 🚧 進行中，見下方 |
 | 唱片櫃式卷期瀏覽（垂直捲動、當前卷期放大、無限捲動） | ⏳ 未開始 |
-| 拆出 `Camera` 實體（`/api/v1/cameras`），V2 migration 把舊的 `camera_name` 去重搬進 `camera` 並回填 | 🚧 進行中（後端完成，前端待改；舊欄位 `camera_name` 待下一支 migration 移除） |
+| 拆出 `Camera` 實體（`/api/v1/cameras`），V2 migration 把舊的 `camera_name` 去重搬進 `camera` 並回填 | ✅ 完成（前端表單改為相機下拉選單；舊欄位 `camera_name` 待下一支 migration 移除） |
+| 相機管理頁（新增、編輯相機規格） | ⏳ 未開始（目前只能透過 API） |
 | 拆出 `Lens` 實體 | ⏳ 未開始 |
 | 沖掃成果（掃描圖檔）管理 | ⏳ 未開始 |
 | 容器化與部署（CD） | ⏳ 未開始 |

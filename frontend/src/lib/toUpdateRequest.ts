@@ -18,7 +18,8 @@ export function toUpdateRequest(roll: FilmRollResponse): UpdateFilmRollRequest {
     pushPullStops: roll.pushPullStops,
     loadedAt: roll.loadedAt,
     finishedAt: roll.finishedAt,
-    cameraName: roll.cameraName,
+    // 回應是巢狀的 camera 物件，請求只要 id；沒有相機時 `?.` 會得到 undefined，JSON 裡就不會出現
+    cameraId: roll.camera?.id,
     lensName: roll.lensName,
     notes: roll.notes,
     status: roll.status,

@@ -1,8 +1,17 @@
 import { useState } from 'react'
 import type { SubmitEvent, ReactNode } from 'react'
 import FieldError from './FieldError'
-import { FORMAT_OPTIONS, PUSH_PULL_OPTIONS, STATUS_LABELS, STATUS_ORDER } from '../lib/constants'
+import { useCameras } from '../hooks/useCameras'
+import { cameraAcceptsFilm } from '../lib/camera'
+import {
+  CAMERA_FORMAT_LABELS,
+  FORMAT_OPTIONS,
+  PUSH_PULL_OPTIONS,
+  STATUS_LABELS,
+  STATUS_ORDER,
+} from '../lib/constants'
 import { toDateInputValue } from '../lib/format'
+import type { CameraResponse } from '../types/camera'
 import type { FilmFormat, FilmRollStatus, UpdateFilmRollRequest } from '../types/filmRoll'
 import styles from './FilmRollForm.module.css'
 
@@ -93,6 +102,11 @@ function Field({ name, label, required, hint, error, children }: FieldProps) {
  * - `maxLength` / `min` / `max` 與後端的 Bean Validation 上限一致，大部分錯誤在送出前就被瀏覽器擋下。
  *   後端的檢查依然存在，這裡只是讓使用者不用等一趟來回。
  * - 狀態下拉只列出 `minStatus` 及之後的狀態，UI 上選不到會被後端 409 擋下的倒退選項。
+ * - 相機下拉的選項來自 `useCameras()`。裝不了目前底片規格的相機（例如選 135 時的 120 相機）
+ *   會顯示但設為 disabled，同理是讓 UI 選不到會被後端 400 擋下的組合。
+ *   已經選好相機後才改規格，仍可能變成不相容，所以另外用提示文字說明，送出後由後端擋下。
+ * - `<select>` 的 value 一定是字串，`cameraId` 是數字：讀的時候 `?? ''`，寫的時候轉回數字，
+ *   選「不指定」（value 為 ''）時存 undefined。
  */
 export default function FilmRollForm({
   initialValues,
@@ -105,9 +119,22 @@ export default function FilmRollForm({
   const [values, setValues] = useState<FilmRollFormValues>(initialValues)
   const [isoInput, setIsoInput] = useState(String(initialValues.iso))
 
+  const camerasQuery = useCameras()
+  const cameras = camerasQuery.data ?? []
+  const selectedCamera = cameras.find((c) => c.id === values.cameraId)
+
   const availableStatuses = minStatus
     ? STATUS_ORDER.slice(STATUS_ORDER.indexOf(minStatus))
     : STATUS_ORDER
+
+  let cameraHint: string | undefined
+  if (camerasQuery.isError) {
+    cameraHint = '相機清單載入失敗，請重新整理頁面'
+  } else if (camerasQuery.isSuccess && cameras.length === 0) {
+    cameraHint = '還沒有建立任何相機'
+  } else if (selectedCamera && !cameraAcceptsFilm(selectedCamera, values.format)) {
+    cameraHint = `這台相機是${CAMERA_FORMAT_LABELS[selectedCamera.format]}片幅，裝不了 ${values.format} 底片`
+  }
 
   /**
    * 通用的欄位更新。`K extends keyof` 讓 `setField('iso', 'abc')` 在編譯期就被擋下。
@@ -124,6 +151,19 @@ export default function FilmRollForm({
       'aria-invalid': Boolean(message),
       'aria-describedby': message ? `${name}-error` : undefined,
     }
+  }
+
+  /**
+   * 換相機。定焦機的鏡頭是固定的，有記錄 `fixedLens` 的話順手帶入鏡頭欄位。
+   * 相機與鏡頭一起用 updater 更新，理由同 `setField` 的說明。
+   */
+  function handleCameraChange(value: string) {
+    const camera: CameraResponse | undefined = cameras.find((c) => c.id === Number(value))
+    setValues((prev) => ({
+      ...prev,
+      cameraId: camera?.id,
+      lensName: camera?.fixedLens ?? prev.lensName,
+    }))
   }
 
   function handleSubmit(e: SubmitEvent<HTMLFormElement>) {
@@ -251,14 +291,25 @@ export default function FilmRollForm({
       </div>
 
       <div className={styles.row}>
-        <Field name="cameraName" label="相機" error={fieldErrors.cameraName}>
-          <input
-            id="cameraName"
-            value={values.cameraName ?? ''}
-            onChange={(e) => setField('cameraName', e.target.value || undefined)}
-            maxLength={100}
-            {...errorProps('cameraName')}
-          />
+        <Field name="cameraId" label="相機" hint={cameraHint} error={fieldErrors.cameraId}>
+          <select
+            id="cameraId"
+            value={values.cameraId ?? ''}
+            onChange={(e) => handleCameraChange(e.target.value)}
+            disabled={camerasQuery.isPending}
+            {...errorProps('cameraId')}
+          >
+            <option value="">{camerasQuery.isPending ? '載入中…' : '不指定'}</option>
+            {cameras.map((c) => {
+              const accepts = cameraAcceptsFilm(c, values.format)
+              return (
+                // 目前選中的相機即使不相容也不能 disabled，否則下拉會顯示不出目前的值
+                <option key={c.id} value={c.id} disabled={!accepts && c.id !== values.cameraId}>
+                  {accepts ? c.name : `${c.name}（${CAMERA_FORMAT_LABELS[c.format]}片幅）`}
+                </option>
+              )
+            })}
+          </select>
         </Field>
         <Field name="lensName" label="鏡頭" error={fieldErrors.lensName}>
           <input
@@ -296,12 +347,13 @@ export default function FilmRollForm({
 /**
  * 新增頁表單一打開時的預設值。
  *
- * - 相機、鏡頭預先填好 PENTAX PG-50 與 35mm f/4.5；ISO 預設 400（PG-50 的 DX code 範圍是 100–400）。
+ * - `camera` 是要預先選好的相機（見 `lib/camera.ts` 的 `defaultCamera`），鏡頭跟著帶入它的 `fixedLens`。
+ *   ISO 預設 400（PG-50 的 DX code 範圍是 100–400）。
  * - 「今天」用本地時區的年月日自己組，不用 `toISOString()`：它是 UTC，台灣凌晨 0～8 點會拿到昨天。
  * - `padStart` 不能省：`2026-9-5` 不是合法的 date input 值，欄位會一片空白。
  * - 寫成函式而不是常數，因為「今天」會變；常數在頁面開過午夜後就會是昨天。
  */
-export function emptyFormValues(): FilmRollFormValues {
+export function emptyFormValues(camera?: CameraResponse): FilmRollFormValues {
   const now = new Date()
   const today = [
     now.getFullYear(),
@@ -314,8 +366,8 @@ export function emptyFormValues(): FilmRollFormValues {
     format: '135',
     pushPullStops: 0,
     loadedAt: today,
-    cameraName: 'PENTAX PG-50',
-    lensName: '35mm f/4.5',
+    cameraId: camera?.id,
+    lensName: camera?.fixedLens,
     status: 'LOADED',
   }
 }
