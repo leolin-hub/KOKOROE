@@ -8,7 +8,7 @@ package com.kokoroe.camera;
  */
 public class CameraInUseException extends RuntimeException {
 
-    public CameraInUseException(Long id, long rollCount) {
-        super("id 為 %d 的相機還有 %d 卷底片使用中，請先修改這些卷期的相機".formatted(id, rollCount));
+    public CameraInUseException(String displayName, long rollCount) {
+        super("相機「%s」還有 %d 卷底片使用中，請先修改這些卷期的相機".formatted(displayName, rollCount));
     }
 }

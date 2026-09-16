@@ -211,6 +211,7 @@ class CameraServiceTest {
 
             assertThatThrownBy(() -> cameraService.delete(1L))
                     .isInstanceOf(CameraInUseException.class)
+                    .hasMessageContaining("PENTAX PG-50")
                     .hasMessageContaining("3 卷");
 
             verify(cameraRepository, never()).delete(any());

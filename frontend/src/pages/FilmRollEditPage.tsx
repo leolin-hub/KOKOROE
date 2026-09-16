@@ -6,7 +6,7 @@ import ErrorBanner from '../components/ErrorBanner'
 import { ApiError, toFieldErrors } from '../api/problem'
 import { toUpdateRequest } from '../lib/toUpdateRequest'
 import type { UpdateFilmRollRequest } from '../types/filmRoll'
-import styles from './FilmRollFormPage.module.css'
+import styles from './FormPage.module.css'
 
 /**
  * 編輯卷期頁。路由 `/film-rolls/:id/edit`。

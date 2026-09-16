@@ -1,8 +1,11 @@
-import { Link, Navigate, Route, Routes } from 'react-router'
+import { Link, NavLink, Navigate, Route, Routes } from 'react-router'
 import FilmRollListPage from './pages/FilmRollListPage'
 import FilmRollDetailPage from './pages/FilmRollDetailPage'
 import FilmRollCreatePage from './pages/FilmRollCreatePage'
 import FilmRollEditPage from './pages/FilmRollEditPage'
+import CameraListPage from './pages/CameraListPage'
+import CameraCreatePage from './pages/CameraCreatePage'
+import CameraEditPage from './pages/CameraEditPage'
 import NotFoundPage from './pages/NotFoundPage'
 import styles from './App.module.css'
 
@@ -15,6 +18,9 @@ import styles from './App.module.css'
  *   /film-rolls/new        → 新增
  *   /film-rolls/:id        → 詳情
  *   /film-rolls/:id/edit   → 編輯
+ *   /cameras               → 相機列表
+ *   /cameras/new           → 新增相機
+ *   /cameras/:id/edit      → 編輯相機（含刪除；相機沒有獨立的詳情頁）
  *   *                      → 404
  *
  * 為什麼 `/new` 要排在 `/:id` 前面：
@@ -36,6 +42,24 @@ export default function App() {
           kokoroe
         </Link>
         <span className={styles.tagline}>底片與器材履歷</span>
+        {/*
+          NavLink 會在網址符合時把 className 函式的 isActive 設為 true，並自動加上 aria-current="page"。
+          /film-rolls/7 也算在「卷期」底下：NavLink 預設比對的是路徑前綴，不需要 end。
+        */}
+        <nav className={styles.nav} aria-label="主要導覽">
+          <NavLink
+            to="/film-rolls"
+            className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+          >
+            卷期
+          </NavLink>
+          <NavLink
+            to="/cameras"
+            className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+          >
+            相機
+          </NavLink>
+        </nav>
       </header>
 
       <main className={styles.main}>
@@ -45,6 +69,9 @@ export default function App() {
           <Route path="/film-rolls/new" element={<FilmRollCreatePage />} />
           <Route path="/film-rolls/:id" element={<FilmRollDetailPage />} />
           <Route path="/film-rolls/:id/edit" element={<FilmRollEditPage />} />
+          <Route path="/cameras" element={<CameraListPage />} />
+          <Route path="/cameras/new" element={<CameraCreatePage />} />
+          <Route path="/cameras/:id/edit" element={<CameraEditPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </main>

@@ -48,6 +48,39 @@ export interface CameraResponse {
 }
 
 /**
+ * `POST /api/v1/cameras` 的請求 body，對應 `CreateCameraRequest`。
+ *
+ * 和卷期一樣，後端設了 `fail-on-unknown-properties`：不能把 `CameraResponse` 整包送回去
+ * （`id`、`name`、`createdAt` 會讓請求被打回 400），要用 `toCameraRequest()` 轉換。
+ * 品牌與型號同名（不分大小寫）已存在時回 409。
+ */
+export interface CreateCameraRequest {
+  brand?: string
+  model: string
+  format: CameraFormat
+  cameraType?: CameraType
+  focusType?: FocusType
+  filmAdvance?: FilmAdvance
+  hasFlash?: boolean
+  /** 為 `true` 時不可填 `fixedLens`，否則 400 business-rule-violated */
+  interchangeableLens?: boolean
+  fixedLens?: string
+  shutterSpeedRange?: string
+  /** 1 ~ 12800，且不可大於 `isoMax` */
+  isoMin?: number
+  isoMax?: number
+  notes?: string
+}
+
+/**
+ * `PUT /api/v1/cameras/{id}` 的請求 body，對應 `UpdateCameraRequest`。
+ *
+ * 目前欄位與新增完全相同。PUT 是整份取代：沒帶的規格會被清成「不知道」。
+ * 還有卷期使用時，改成裝不下這些底片的片幅會拿到 409。
+ */
+export type UpdateCameraRequest = CreateCameraRequest
+
+/**
  * 嵌在卷期回應裡的相機摘要，對應 `CameraSummaryResponse`。
  * 完整規格要另外打 `GET /api/v1/cameras/{id}`。
  */

@@ -50,7 +50,7 @@ public class CameraService {
         Camera camera = findOrThrow(id);
         long rollCount = cameraRepository.countFilmRollsUsing(id);
         if (rollCount > 0) {
-            throw new CameraInUseException(id, rollCount);
+            throw new CameraInUseException(camera.getDisplayName(), rollCount);
         }
         cameraRepository.delete(camera);
     }

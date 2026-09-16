@@ -205,7 +205,7 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 | 前端垂直切片（Vite + React + TS + TanStack Query） | 🚧 進行中，見下方 |
 | 唱片櫃式卷期瀏覽（垂直捲動、當前卷期放大、無限捲動） | ⏳ 未開始 |
 | 拆出 `Camera` 實體（`/api/v1/cameras`），V2 migration 把舊的 `camera_name` 去重搬進 `camera` 並回填 | ✅ 完成（前端表單改為相機下拉選單；舊欄位 `camera_name` 待下一支 migration 移除） |
-| 相機管理頁（新增、編輯相機規格） | ⏳ 未開始（目前只能透過 API） |
+| 相機管理頁（`/cameras` 列表、新增、編輯與刪除） | ✅ 完成 |
 | 拆出 `Lens` 實體 | ⏳ 未開始 |
 | 沖掃成果（掃描圖檔）管理 | ⏳ 未開始 |
 | 容器化與部署（CD） | ⏳ 未開始 |
@@ -222,9 +222,15 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 - ✅ `StatusBadge`、`ErrorBanner`（5xx／網路錯誤才可重試）、`FilmRollCard`
 - ✅ 列表頁（篩選／排序／分頁狀態放在 URL、四種載入狀態）、`FilmRollFilters`、`Pagination`
 
-**寫入路徑**（`feat/frontend-write-path`，進行中）
+**寫入路徑**（`feat/frontend-write-path`，已合併）
 
 - ✅ `useCreateFilmRoll` / `useUpdateFilmRoll` / `useDeleteFilmRoll`（成功後失效列表與詳情快取）
 - ✅ `FieldError`、`FilmRollForm`（新增與編輯共用，輸入限制與後端驗證一致）
 - ✅ 新增頁、詳情頁（推進狀態、刪除）、編輯頁；`lib/toUpdateRequest.ts`
 - ✅ 收尾：`noUnusedLocals` / `noUnusedParameters` 改回 `true`、清除骨架的 TODO 與 placeholder、`npm run build` 與 `npm run lint` 通過
+
+**相機**（`feat/backend-camera-entity`，已合併；`feat/frontend-camera-management`）
+
+- ✅ 卷期表單的相機改為下拉選單（`useCameras`，裝不了目前底片規格的相機設為 disabled）
+- ✅ 相機管理頁：列表（規格摘要）、新增、編輯（含刪除，使用中回 409 顯示原因）；上方導覽列加入「卷期／相機」
+- ✅ 表單共用元件抽出：`FormField`、`Form.module.css`、`FormPage.module.css`
