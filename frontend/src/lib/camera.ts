@@ -1,4 +1,4 @@
-import type { CameraFormat, CameraResponse } from '../types/camera'
+import type { CameraFormat, CameraResponse, UpdateCameraRequest } from '../types/camera'
 import type { FilmFormat } from '../types/filmRoll'
 
 /**
@@ -14,6 +14,38 @@ const FILM_FORMAT_BY_CAMERA: Record<CameraFormat, FilmFormat> = {
 /** 這台相機能不能裝這個規格的底片。 */
 export function cameraAcceptsFilm(camera: CameraResponse, format: FilmFormat): boolean {
   return FILM_FORMAT_BY_CAMERA[camera.format] === format
+}
+
+/**
+ * 新增相機頁的預設值：只有必填的型號（空白）與片幅（135）。
+ *
+ * 放在這裡而不是 CameraForm.tsx：元件檔只 export 元件，Vite 的 Fast Refresh 才能在改樣式時保留表單狀態
+ * （oxlint 的 `only-export-components` 警告就是在提醒這件事）。
+ */
+export function emptyCameraValues(): UpdateCameraRequest {
+  return { model: '', format: '135' }
+}
+
+/**
+ * 把後端回傳的相機轉成 PUT 請求的 body（編輯頁表單的初始值）。
+ * 逐一列出欄位的理由同 `toUpdateRequest`：展開會帶出 id、name、createdAt，被後端打回 400。
+ */
+export function toCameraRequest(camera: CameraResponse): UpdateCameraRequest {
+  return {
+    brand: camera.brand,
+    model: camera.model,
+    format: camera.format,
+    cameraType: camera.cameraType,
+    focusType: camera.focusType,
+    filmAdvance: camera.filmAdvance,
+    hasFlash: camera.hasFlash,
+    interchangeableLens: camera.interchangeableLens,
+    fixedLens: camera.fixedLens,
+    shutterSpeedRange: camera.shutterSpeedRange,
+    isoMin: camera.isoMin,
+    isoMax: camera.isoMax,
+    notes: camera.notes,
+  }
 }
 
 /**

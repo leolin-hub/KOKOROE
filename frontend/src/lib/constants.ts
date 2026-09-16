@@ -1,4 +1,4 @@
-import type { CameraFormat } from '../types/camera'
+import type { CameraFormat, CameraType, FilmAdvance, FocusType } from '../types/camera'
 import type { FilmFormat, FilmRollStatus } from '../types/filmRoll'
 
 /**
@@ -40,6 +40,39 @@ export const CAMERA_FORMAT_LABELS: Record<CameraFormat, string> = {
   '135': '135',
   '120': '120',
   'half-frame': '半格',
+}
+
+/** 相機片幅選項（相機表單用）。 */
+export const CAMERA_FORMAT_OPTIONS: readonly { value: CameraFormat; label: string }[] = [
+  { value: '135', label: '135（35mm）' },
+  { value: 'half-frame', label: '半格（裝 135 底片）' },
+  { value: '120', label: '120（中片幅）' },
+]
+
+/*
+ * 相機規格的顯示文字。用 Record 而不是陣列：型別新增一個值時，這裡少寫會編譯失敗。
+ * 選項的順序就是物件鍵的宣告順序（字串鍵依插入順序），表單用 Object.entries 產生選項。
+ */
+
+export const CAMERA_TYPE_LABELS: Record<CameraType, string> = {
+  POINT_AND_SHOOT: '傻瓜機',
+  SLR: '單眼',
+  RANGEFINDER: '旁軸',
+  TLR: '雙眼',
+  DISPOSABLE: '即可拍',
+  OTHER: '其他',
+}
+
+export const FOCUS_TYPE_LABELS: Record<FocusType, string> = {
+  AUTO: '自動對焦',
+  MANUAL: '手動對焦',
+  FIXED: '固定焦點',
+  ZONE: '區域對焦',
+}
+
+export const FILM_ADVANCE_LABELS: Record<FilmAdvance, string> = {
+  AUTO: '自動過片',
+  MANUAL: '手動過片',
 }
 
 /**

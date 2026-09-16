@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { SubmitEvent, ReactNode } from 'react'
-import FieldError from './FieldError'
+import type { SubmitEvent } from 'react'
+import Field from './FormField'
 import { useCameras } from '../hooks/useCameras'
 import { cameraAcceptsFilm } from '../lib/camera'
 import {
@@ -13,7 +13,7 @@ import {
 import { toDateInputValue } from '../lib/format'
 import type { CameraResponse } from '../types/camera'
 import type { FilmFormat, FilmRollStatus, UpdateFilmRollRequest } from '../types/filmRoll'
-import styles from './FilmRollForm.module.css'
+import styles from './Form.module.css'
 
 /**
  * 表單的值型別。
@@ -48,38 +48,6 @@ interface FilmRollFormProps {
    * 新增頁不傳，四個狀態都能選。
    */
   minStatus?: FilmRollStatus
-}
-
-interface FieldProps {
-  /** 欄位名，同時當作輸入元件的 `id` 與 FieldError 的 `fieldId`。 */
-  name: keyof FilmRollFormValues
-  label: string
-  required?: boolean
-  /** 欄位下方的灰色提示文字。 */
-  hint?: string
-  error?: string
-  /** 輸入元件本身。記得帶上 `id={name}`，label 的 htmlFor 才對得起來。 */
-  children: ReactNode
-}
-
-/** 一個欄位的外框：label、輸入元件、提示文字、錯誤訊息。 */
-function Field({ name, label, required, hint, error, children }: FieldProps) {
-  return (
-    <div className={styles.field}>
-      <label htmlFor={name} className={styles.label}>
-        {label}
-        {/* 必填已經由輸入元件的 required 屬性表達，星號只給眼睛看，不讓螢幕閱讀器念出來 */}
-        {required && (
-          <span className={styles.required} aria-hidden="true">
-            {' '}*
-          </span>
-        )}
-      </label>
-      {children}
-      {hint && <p className={styles.hint}>{hint}</p>}
-      <FieldError fieldId={name} message={error} />
-    </div>
-  )
 }
 
 /**
@@ -131,7 +99,7 @@ export default function FilmRollForm({
   if (camerasQuery.isError) {
     cameraHint = '相機清單載入失敗，請重新整理頁面'
   } else if (camerasQuery.isSuccess && cameras.length === 0) {
-    cameraHint = '還沒有建立任何相機'
+    cameraHint = '還沒有建立任何相機，可以到上方的「相機」頁新增'
   } else if (selectedCamera && !cameraAcceptsFilm(selectedCamera, values.format)) {
     cameraHint = `這台相機是${CAMERA_FORMAT_LABELS[selectedCamera.format]}片幅，裝不了 ${values.format} 底片`
   }

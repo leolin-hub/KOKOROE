@@ -52,4 +52,6 @@ export const filmRollKeys = {
 export const cameraKeys = {
   all: ['cameras'] as const,
   lists: () => [...cameraKeys.all, 'list'] as const,
+  details: () => [...cameraKeys.all, 'detail'] as const,
+  detail: (id: number) => [...cameraKeys.details(), id] as const,
 }

@@ -6,7 +6,7 @@ import ErrorBanner from '../components/ErrorBanner'
 import { ApiError, toFieldErrors } from '../api/problem'
 import { defaultCamera } from '../lib/camera'
 import type { CreateFilmRollRequest } from '../types/filmRoll'
-import styles from './FilmRollFormPage.module.css'
+import styles from './FormPage.module.css'
 
 /**
  * 新增卷期頁。路由 `/film-rolls/new`。
