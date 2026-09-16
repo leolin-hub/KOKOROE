@@ -46,10 +46,10 @@ export default function FilmRollCard({ roll }: FilmRollCardProps) {
           <dt className={styles.metaLabel}>裝片日期</dt>
           <dd className={styles.metaValue}>{formatDate(roll.loadedAt)}</dd>
         </div>
-        {roll.cameraName && (
+        {roll.camera && (
           <div>
             <dt className={styles.metaLabel}>相機</dt>
-            <dd className={styles.metaValue}>{roll.cameraName}</dd>
+            <dd className={styles.metaValue}>{roll.camera.name}</dd>
           </div>
         )}
       </dl>

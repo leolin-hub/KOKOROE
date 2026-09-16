@@ -1,5 +1,8 @@
 package com.kokoroe.filmroll;
 
+import com.kokoroe.camera.Camera;
+import com.kokoroe.camera.CameraFormat;
+import com.kokoroe.camera.CameraRepository;
 import com.kokoroe.filmroll.dto.CreateFilmRollRequest;
 import com.kokoroe.filmroll.dto.FilmRollResponse;
 import com.kokoroe.filmroll.dto.UpdateFilmRollRequest;
@@ -39,12 +42,19 @@ class FilmRollServiceTest {
     @Mock
     private FilmRollRepository filmRollRepository;
 
+    @Mock
+    private CameraRepository cameraRepository;
+
     @InjectMocks
     private FilmRollService filmRollService;
 
     // ------------------------------------------------------------------
     // 測試資料工廠
     // ------------------------------------------------------------------
+
+    private static Camera camera(Long id, String model, CameraFormat format) {
+        return Camera.builder().id(id).brand("Nikon").model(model).format(format).build();
+    }
 
     private static FilmRoll existingRoll(Long id, FilmRollStatus status) {
         return FilmRoll.builder()
@@ -55,14 +65,18 @@ class FilmRollServiceTest {
                 .format(FilmFormat.FORMAT_135)
                 .pushPullStops(0)
                 .loadedAt(LOADED_ON)
-                .cameraName("Nikon FM2")
                 .status(status)
                 .build();
     }
 
     private static UpdateFilmRollRequest updateRequestWith(FilmRollStatus status, LocalDate finishedAt) {
+        return updateRequestWith(status, finishedAt, null);
+    }
+
+    private static UpdateFilmRollRequest updateRequestWith(FilmRollStatus status, LocalDate finishedAt,
+                                                           Long cameraId) {
         return new UpdateFilmRollRequest("Kodak Portra 400", "Kodak", 400, FilmFormat.FORMAT_135,
-                0, LOADED_ON, finishedAt, "Nikon FM2", "50mm f/1.4", null, status);
+                0, LOADED_ON, finishedAt, cameraId, "50mm f/1.4", null, status);
     }
 
     @Nested
@@ -74,8 +88,10 @@ class FilmRollServiceTest {
         void shouldPersistAndReturnResponse() {
             CreateFilmRollRequest request = new CreateFilmRollRequest(
                     "Lomography 400", "Lomography", 400, FilmFormat.FORMAT_135,
-                    1, LOADED_ON, null, "Nikon FM2", "50mm f/1.4", "第一卷", null);
+                    1, LOADED_ON, null, 7L, "50mm f/1.4", "第一卷", null);
 
+            when(cameraRepository.findById(7L))
+                    .thenReturn(Optional.of(camera(7L, "FM2", CameraFormat.FORMAT_135)));
             when(filmRollRepository.save(any(FilmRoll.class)))
                     .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -87,6 +103,8 @@ class FilmRollServiceTest {
             assertThat(captor.getValue().getFilmName()).isEqualTo("Lomography 400");
             assertThat(captor.getValue().getPushPullStops()).isEqualTo(1);
             assertThat(response.filmName()).isEqualTo("Lomography 400");
+            assertThat(response.camera().id()).isEqualTo(7L);
+            assertThat(response.camera().name()).isEqualTo("Nikon FM2");
             // status 未指定時，DTO 的 compact constructor 應補上 LOADED
             assertThat(response.status()).isEqualTo(FilmRollStatus.LOADED);
         }
@@ -103,6 +121,51 @@ class FilmRollServiceTest {
                     .hasMessageContaining("不可早於裝片日期");
 
             verify(filmRollRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("指定不存在的相機應回 400 類的例外，且不得寫入資料庫")
+        void shouldRejectUnknownCamera() {
+            CreateFilmRollRequest request = new CreateFilmRollRequest(
+                    "Kodak Gold 200", "Kodak", 200, FilmFormat.FORMAT_135,
+                    0, LOADED_ON, null, 404L, null, null, null);
+            when(cameraRepository.findById(404L)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> filmRollService.create(request))
+                    .isInstanceOf(InvalidFilmRollException.class)
+                    .hasMessageContaining("404");
+
+            verify(filmRollRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("120 相機不能裝 135 底片")
+        void shouldRejectIncompatibleCamera() {
+            CreateFilmRollRequest request = new CreateFilmRollRequest(
+                    "Kodak Gold 200", "Kodak", 200, FilmFormat.FORMAT_135,
+                    0, LOADED_ON, null, 8L, null, null, null);
+            when(cameraRepository.findById(8L))
+                    .thenReturn(Optional.of(camera(8L, "RB67", CameraFormat.FORMAT_120)));
+
+            assertThatThrownBy(() -> filmRollService.create(request))
+                    .isInstanceOf(InvalidFilmRollException.class)
+                    .hasMessageContaining("120");
+
+            verify(filmRollRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("半格機裝的是 135 底片，應允許")
+        void shouldAcceptHalfFrameCameraWith135Film() {
+            CreateFilmRollRequest request = new CreateFilmRollRequest(
+                    "Kodak Gold 200", "Kodak", 200, FilmFormat.FORMAT_135,
+                    0, LOADED_ON, null, 9L, null, null, null);
+            when(cameraRepository.findById(9L))
+                    .thenReturn(Optional.of(camera(9L, "Pen EE", CameraFormat.HALF_FRAME)));
+            when(filmRollRepository.save(any(FilmRoll.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            assertThat(filmRollService.create(request).camera().id()).isEqualTo(9L);
         }
     }
 
@@ -151,6 +214,25 @@ class FilmRollServiceTest {
             assertThat(response.finishedAt()).isEqualTo(LOADED_ON.plusDays(20));
             assertThat(response.lensName()).isEqualTo("50mm f/1.4");
             verify(filmRollRepository).saveAndFlush(existing);
+        }
+
+        @Test
+        @DisplayName("同時換相機與底片規格時，應以新的規格判斷相容性")
+        void shouldCheckCameraAgainstNewFormat() {
+            FilmRoll existing = existingRoll(1L, FilmRollStatus.SHOOTING);
+            when(filmRollRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(cameraRepository.findById(8L))
+                    .thenReturn(Optional.of(camera(8L, "RB67", CameraFormat.FORMAT_120)));
+            when(filmRollRepository.saveAndFlush(any(FilmRoll.class)))
+                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+            UpdateFilmRollRequest request = new UpdateFilmRollRequest("Kodak Portra 400", "Kodak", 400,
+                    FilmFormat.FORMAT_120, 0, LOADED_ON, null, 8L, null, null, FilmRollStatus.SHOOTING);
+
+            FilmRollResponse response = filmRollService.update(1L, request);
+
+            assertThat(response.format()).isEqualTo(FilmFormat.FORMAT_120);
+            assertThat(response.camera().name()).isEqualTo("Nikon RB67");
         }
 
         @Test

@@ -8,6 +8,8 @@
  * 後端契約若有變動，改這裡，然後讓 TypeScript 帶你找出所有壞掉的地方。
  */
 
+import type { CameraSummary } from './camera'
+
 /**
  * 卷期狀態。
  *
@@ -46,7 +48,8 @@ export interface FilmRollResponse {
   loadedAt: string
   /** 仍在拍攝中時此欄位不存在 */
   finishedAt?: string
-  cameraName?: string
+  /** 拍這卷的相機；沒指定時此欄位不存在 */
+  camera?: CameraSummary
   lensName?: string
   notes?: string
   status: FilmRollStatus
@@ -73,7 +76,11 @@ export interface CreateFilmRollRequest {
   loadedAt: string
   /** 不得早於 loadedAt，否則 400 business-rule-violated */
   finishedAt?: string
-  cameraName?: string
+  /**
+   * 相機的 id。回應裡是巢狀的 `camera: { id, name }`，請求只送 id。
+   * 相機不存在，或相機片幅裝不了這個 `format`，會拿到 400 business-rule-violated。
+   */
+  cameraId?: number
   lensName?: string
   notes?: string
   /** 不填後端預設 `LOADED` */
@@ -94,7 +101,7 @@ export interface UpdateFilmRollRequest {
   pushPullStops?: number
   loadedAt: string
   finishedAt?: string
-  cameraName?: string
+  cameraId?: number
   lensName?: string
   notes?: string
   /** 必填，且只能向前流轉；逆向會拿到 409 */

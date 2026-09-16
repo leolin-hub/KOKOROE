@@ -104,7 +104,7 @@ export default function FilmRollDetailPage() {
     { label: '增減感', value: formatPushPull(roll.pushPullStops) },
     { label: '裝片日期', value: formatDate(roll.loadedAt) },
     { label: '拍完日期', value: formatDate(roll.finishedAt) },
-    { label: '相機', value: roll.cameraName ?? EMPTY_PLACEHOLDER },
+    { label: '相機', value: roll.camera?.name ?? EMPTY_PLACEHOLDER },
     { label: '鏡頭', value: roll.lensName ?? EMPTY_PLACEHOLDER },
     { label: '備註', value: roll.notes ?? EMPTY_PLACEHOLDER },
   ]

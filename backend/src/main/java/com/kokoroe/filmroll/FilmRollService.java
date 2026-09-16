@@ -1,5 +1,7 @@
 package com.kokoroe.filmroll;
 
+import com.kokoroe.camera.Camera;
+import com.kokoroe.camera.CameraRepository;
 import com.kokoroe.common.dto.PageResponse;
 import com.kokoroe.filmroll.dto.CreateFilmRollRequest;
 import com.kokoroe.filmroll.dto.FilmRollResponse;
@@ -25,10 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class FilmRollService {
 
     private final FilmRollRepository filmRollRepository;
+    private final CameraRepository cameraRepository;
 
     @Transactional
     public FilmRollResponse create(CreateFilmRollRequest request) {
-        FilmRoll saved = filmRollRepository.save(FilmRollMapper.toEntity(request));
+        Camera camera = findCameraOrReject(request.cameraId());
+        FilmRoll saved = filmRollRepository.save(FilmRollMapper.toEntity(request, camera));
         return FilmRollMapper.toResponse(saved);
     }
 
@@ -52,7 +56,7 @@ public class FilmRollService {
                 request.format(), request.pushPullStops());
         filmRoll.updateShootingLog(
                 request.loadedAt(), request.finishedAt(),
-                request.cameraName(), request.lensName(), request.notes());
+                findCameraOrReject(request.cameraId()), request.lensName(), request.notes());
         filmRoll.changeStatus(request.status());
 
         // 用 saveAndFlush 強制立即 flush，讓 @LastModifiedDate 在此刻就被寫入。
@@ -65,6 +69,20 @@ public class FilmRollService {
         // 先查再刪，是為了讓「刪除不存在的資料」明確回 404，
         // 而不是靜默成功 —— 後者會讓前端誤以為刪掉了某筆其實不存在的資料。
         filmRollRepository.delete(findOrThrow(id));
+    }
+
+    /**
+     * 依 id 找相機；沒指定時回 null。
+     *
+     * <p>找不到時回 400 而不是 404：404 代表「網址指到的資源不存在」，
+     * 這裡網址沒問題，是請求內容引用了不存在的相機。
+     */
+    private Camera findCameraOrReject(Long cameraId) {
+        if (cameraId == null) {
+            return null;
+        }
+        return cameraRepository.findById(cameraId)
+                .orElseThrow(() -> new InvalidFilmRollException("找不到 id 為 %d 的相機".formatted(cameraId)));
     }
 
     private FilmRoll findOrThrow(Long id) {

@@ -42,3 +42,14 @@ export const filmRollKeys = {
   /** 特定一筆。更新 / 刪除後該失效這一個。 */
   detail: (id: number) => [...filmRollKeys.details(), id] as const,
 }
+
+/**
+ * 相機的 query key，階層同 `filmRollKeys`。
+ *
+ * 目前只有「全部相機」一種列表（沒有篩選條件），所以 `lists()` 本身就是完整的 key。
+ * 卷期的回應裡只嵌了相機摘要，修改相機名稱後，卷期的快取也要一起失效。
+ */
+export const cameraKeys = {
+  all: ['cameras'] as const,
+  lists: () => [...cameraKeys.all, 'list'] as const,
+}

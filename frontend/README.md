@@ -127,9 +127,14 @@ console.log(r.status, await r.json())
 想塞測試資料的話：
 
 ```bash
+# 先建一台相機，回應裡的 id 就是下面的 cameraId
+curl -X POST http://localhost:8080/api/v1/cameras \
+  -H "Content-Type: application/json" \
+  -d '{"brand":"Nikon","model":"FM2","format":"135"}'
+
 curl -X POST http://localhost:8080/api/v1/film-rolls \
   -H "Content-Type: application/json" \
-  -d '{"filmName":"Kodak Portra 400","brand":"Kodak","iso":400,"format":"135","loadedAt":"2026-03-01","cameraName":"Nikon FM2","pushPullStops":1}'
+  -d '{"filmName":"Kodak Portra 400","brand":"Kodak","iso":400,"format":"135","loadedAt":"2026-03-01","cameraId":1,"pushPullStops":1}'
 ```
 
 ### 第 3 階段：寫入

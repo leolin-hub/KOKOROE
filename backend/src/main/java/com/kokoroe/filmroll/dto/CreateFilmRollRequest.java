@@ -47,8 +47,8 @@ public record CreateFilmRollRequest(
 
         LocalDate finishedAt,
 
-        @Size(max = 100, message = "相機名稱長度不可超過 100 字")
-        String cameraName,
+        /** 相機的 id（先用 {@code GET /api/v1/cameras} 取得），不指定相機時省略。 */
+        Long cameraId,
 
         @Size(max = 100, message = "鏡頭名稱長度不可超過 100 字")
         String lensName,

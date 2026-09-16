@@ -1,5 +1,6 @@
 package com.kokoroe.filmroll.dto;
 
+import com.kokoroe.camera.dto.CameraSummaryResponse;
 import com.kokoroe.filmroll.FilmFormat;
 import com.kokoroe.filmroll.FilmRollStatus;
 
@@ -22,7 +23,7 @@ public record FilmRollResponse(
         Integer pushPullStops,
         LocalDate loadedAt,
         LocalDate finishedAt,
-        String cameraName,
+        CameraSummaryResponse camera,
         String lensName,
         String notes,
         FilmRollStatus status,
