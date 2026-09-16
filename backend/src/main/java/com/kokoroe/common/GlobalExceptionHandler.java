@@ -1,10 +1,15 @@
 package com.kokoroe.common;
 
+import com.kokoroe.camera.CameraInUseException;
+import com.kokoroe.camera.CameraNotFoundException;
+import com.kokoroe.camera.DuplicateCameraException;
+import com.kokoroe.camera.InvalidCameraException;
 import com.kokoroe.filmroll.FilmRollNotFoundException;
 import com.kokoroe.filmroll.IllegalStatusTransitionException;
 import com.kokoroe.filmroll.InvalidFilmRollException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -56,14 +61,14 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler(FilmRollNotFoundException.class)
-    public ProblemDetail handleNotFound(FilmRollNotFoundException ex) {
+    @ExceptionHandler({FilmRollNotFoundException.class, CameraNotFoundException.class})
+    public ProblemDetail handleNotFound(RuntimeException ex) {
         return build(HttpStatus.NOT_FOUND, "找不到資源", ex.getMessage(), TYPE_NOT_FOUND);
     }
 
     /** 跨欄位的商業規則違反（例如日期順序顛倒）。 */
-    @ExceptionHandler(InvalidFilmRollException.class)
-    public ProblemDetail handleInvalidFilmRoll(InvalidFilmRollException ex) {
+    @ExceptionHandler({InvalidFilmRollException.class, InvalidCameraException.class})
+    public ProblemDetail handleBusinessRule(RuntimeException ex) {
         return build(HttpStatus.BAD_REQUEST, "商業規則驗證失敗", ex.getMessage(), TYPE_BUSINESS_RULE);
     }
 
@@ -71,6 +76,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalStatusTransitionException.class)
     public ProblemDetail handleIllegalTransition(IllegalStatusTransitionException ex) {
         return build(HttpStatus.CONFLICT, "狀態衝突", ex.getMessage(), TYPE_BUSINESS_RULE);
+    }
+
+    /** 與既有資料衝突 → 409：同名相機已存在、相機還有卷期在用。 */
+    @ExceptionHandler({DuplicateCameraException.class, CameraInUseException.class})
+    public ProblemDetail handleResourceConflict(RuntimeException ex) {
+        return build(HttpStatus.CONFLICT, "資源衝突", ex.getMessage(), TYPE_BUSINESS_RULE);
+    }
+
+    /**
+     * 資料庫約束擋下的寫入（唯一索引、外鍵、CHECK）→ 409。
+     *
+     * <p>正常流程會先被 Service 的檢查攔下，會走到這裡通常是兩個請求同時寫入的競態。
+     * 例外訊息含有約束名稱與 SQL，只寫進 log，不回給 client。
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex) {
+        log.warn("資料庫約束擋下寫入", ex);
+        return build(HttpStatus.CONFLICT, "資源衝突",
+                "資料與現有紀錄衝突，請重新整理後再試", TYPE_BUSINESS_RULE);
     }
 
     /**

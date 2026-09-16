@@ -1,13 +1,17 @@
 package com.kokoroe.filmroll;
 
+import com.kokoroe.camera.Camera;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.EnumType;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -72,8 +76,17 @@ public class FilmRoll {
     @Column(name = "finished_at")
     private LocalDate finishedAt;
 
-    @Column(name = "camera_name", length = 100)
-    private String cameraName;
+    /**
+     * 拍這卷的相機，可為 null。
+     *
+     * <p>{@code LAZY}：{@code @ManyToOne} 預設是 EAGER，每次載入卷期都會順便查相機。
+     * 需要相機的查詢（例如列表）改在 Repository 用 {@code @EntityGraph} 明確一起抓。
+     *
+     * <p>資料表裡舊的 {@code camera_name} 欄位已不再對應到實體，下一支 migration 會移除。
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "camera_id")
+    private Camera camera;
 
     @Column(name = "lens_name", length = 100)
     private String lensName;
@@ -103,9 +116,10 @@ public class FilmRoll {
      */
     public static FilmRoll create(String filmName, String brand, Integer iso, FilmFormat format,
                                   Integer pushPullStops, LocalDate loadedAt, LocalDate finishedAt,
-                                  String cameraName, String lensName, String notes,
+                                  Camera camera, String lensName, String notes,
                                   FilmRollStatus status) {
         requireValidDateRange(loadedAt, finishedAt);
+        requireCompatibleCamera(camera, format);
         return FilmRoll.builder()
                 .filmName(filmName)
                 .brand(brand)
@@ -114,7 +128,7 @@ public class FilmRoll {
                 .pushPullStops(pushPullStops)
                 .loadedAt(loadedAt)
                 .finishedAt(finishedAt)
-                .cameraName(cameraName)
+                .camera(camera)
                 .lensName(lensName)
                 .notes(notes)
                 .status(status)
@@ -131,13 +145,19 @@ public class FilmRoll {
         this.pushPullStops = pushPullStops;
     }
 
-    /** 修改這卷片的拍攝紀錄（日期、器材、筆記）。 */
+    /**
+     * 修改這卷片的拍攝紀錄（日期、器材、筆記）。
+     *
+     * <p>相機與底片規格是否相容在這裡檢查，所以要先呼叫 {@link #updateFilmDetails}：
+     * 使用者可能同時換了相機和規格，只看其中一半會誤判。
+     */
     public void updateShootingLog(LocalDate loadedAt, LocalDate finishedAt,
-                                  String cameraName, String lensName, String notes) {
+                                  Camera camera, String lensName, String notes) {
         requireValidDateRange(loadedAt, finishedAt);
+        requireCompatibleCamera(camera, this.format);
         this.loadedAt = loadedAt;
         this.finishedAt = finishedAt;
-        this.cameraName = cameraName;
+        this.camera = camera;
         this.lensName = lensName;
         this.notes = notes;
     }
@@ -153,6 +173,13 @@ public class FilmRoll {
             throw new IllegalStatusTransitionException(this.status, newStatus);
         }
         this.status = newStatus;
+    }
+
+    private static void requireCompatibleCamera(Camera camera, FilmFormat format) {
+        if (camera != null && !camera.getFormat().accepts(format)) {
+            throw new InvalidFilmRollException("相機「%s」是 %s 片幅，不能裝 %s 底片".formatted(
+                    camera.getDisplayName(), camera.getFormat().getCode(), format.getCode()));
+        }
     }
 
     private static void requireValidDateRange(LocalDate loadedAt, LocalDate finishedAt) {

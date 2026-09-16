@@ -1,5 +1,6 @@
 package com.kokoroe.filmroll;
 
+import com.kokoroe.camera.dto.CameraSummaryResponse;
 import com.kokoroe.common.GlobalExceptionHandler;
 import com.kokoroe.common.dto.PageResponse;
 import com.kokoroe.filmroll.dto.FilmRollResponse;
@@ -55,7 +56,7 @@ class FilmRollControllerTest {
     private static FilmRollResponse sampleResponse(Long id) {
         return new FilmRollResponse(id, "Kodak Portra 400", "Kodak", 400,
                 FilmFormat.FORMAT_135, 0, LocalDate.of(2026, 3, 1), null,
-                "Nikon FM2", "50mm f/1.4", null, FilmRollStatus.LOADED,
+                new CameraSummaryResponse(7L, "Nikon FM2"), "50mm f/1.4", null, FilmRollStatus.LOADED,
                 Instant.parse("2026-03-01T00:00:00Z"), Instant.parse("2026-03-01T00:00:00Z"));
     }
 
@@ -79,6 +80,8 @@ class FilmRollControllerTest {
                 .andExpect(jsonPath("$.id").value(1))
                 // 對外契約是 "135"，不是內部常數名 FORMAT_135
                 .andExpect(jsonPath("$.format").value("135"))
+                .andExpect(jsonPath("$.camera.id").value(7))
+                .andExpect(jsonPath("$.camera.name").value("Nikon FM2"))
                 .andExpect(jsonPath("$.status").value("LOADED"));
     }
 

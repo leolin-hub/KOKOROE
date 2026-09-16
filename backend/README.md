@@ -33,8 +33,10 @@ cd backend
 
 ## API 契約 v1
 
-Base path：`/api/v1/film-rolls`
+Base path：`/api/v1`
 錯誤回應一律為 **RFC 9457 `application/problem+json`**。
+
+### 卷期（`/film-rolls`）
 
 | Method | Path | Request Body | 成功 | 可能的錯誤 |
 |---|---|---|---|---|
@@ -43,6 +45,18 @@ Base path：`/api/v1/film-rolls`
 | `GET` | `/api/v1/film-rolls/{id}` | — | `200` `FilmRollResponse` | `400` `404` |
 | `PUT` | `/api/v1/film-rolls/{id}` | `UpdateFilmRollRequest` | `200` `FilmRollResponse` | `400` `404` `409` |
 | `DELETE` | `/api/v1/film-rolls/{id}` | — | `204` | `400` `404` |
+
+### 相機（`/cameras`）
+
+| Method | Path | Request Body | 成功 | 可能的錯誤 |
+|---|---|---|---|---|
+| `POST` | `/api/v1/cameras` | `CreateCameraRequest` | `201` + `Location` header | `400` `409`（同名） |
+| `GET` | `/api/v1/cameras` | — | `200` `PageResponse<CameraResponse>` | `400` |
+| `GET` | `/api/v1/cameras/{id}` | — | `200` `CameraResponse` | `400` `404` |
+| `PUT` | `/api/v1/cameras/{id}` | `UpdateCameraRequest` | `200` `CameraResponse` | `400` `404` `409`（同名） |
+| `DELETE` | `/api/v1/cameras/{id}` | — | `204` | `400` `404` `409`（還有卷期使用中） |
+
+相機列表預設 `size=100`、`sort=brand,asc&sort=model,asc`，前端下拉選單打一次就能拿到全部。
 
 ### 查詢參數（`GET /api/v1/film-rolls`）
 
@@ -65,7 +79,7 @@ Base path：`/api/v1/film-rolls`
   "pushPullStops": 1,         // -3 ~ +3，正數推感、負數減感
   "loadedAt": "2026-03-01",   // ISO-8601 date
   "finishedAt": null,         // 仍在拍攝中時為 null
-  "cameraName": "Nikon FM2",
+  "camera": { "id": 3, "name": "Nikon FM2" },  // 沒指定相機時不出現
   "lensName": "50mm f/1.4",
   "notes": "櫻花季，推一格",
   "status": "LOADED",
@@ -77,7 +91,33 @@ Base path：`/api/v1/film-rolls`
 > `default-property-inclusion: non_null` —— 值為 `null` 的欄位不會出現在回應中。
 > 前端 TypeScript interface 對應時，可為 null 的欄位請標為 optional（`?`）。
 
-### 請求欄位驗證規則
+### `CameraResponse`
+
+```jsonc
+{
+  "id": 3,
+  "brand": "PENTAX",                // 可省略
+  "model": "PG-50",
+  "name": "PENTAX PG-50",           // 顯示用：「品牌 型號」
+  "format": "135",                  // "135" | "120" | "half-frame"
+  "cameraType": "POINT_AND_SHOOT",  // POINT_AND_SHOOT | SLR | RANGEFINDER | TLR | DISPOSABLE | OTHER
+  "focusType": "AUTO",              // AUTO | MANUAL | FIXED | ZONE
+  "filmAdvance": "AUTO",            // MANUAL | AUTO
+  "hasFlash": true,
+  "interchangeableLens": false,
+  "fixedLens": "35mm f/4.5",        // 內建鏡頭；可換鏡頭的機身不會有
+  "shutterSpeedRange": "1/60–1/250",
+  "isoMin": 100,
+  "isoMax": 400,
+  "notes": "DX 自動讀取感光度",
+  "createdAt": "2026-09-16T09:12:33.512Z",
+  "updatedAt": "2026-09-16T09:12:33.512Z"
+}
+```
+
+只有 `model`、`format` 必填，其餘欄位都可以不填，沒填代表「還不知道」。
+
+### 卷期請求欄位驗證規則
 
 | 欄位 | 必填 | 規則 |
 |---|---|---|
@@ -88,9 +128,23 @@ Base path：`/api/v1/film-rolls`
 | `pushPullStops` | | `-3` ~ `3`，未填預設 `0` |
 | `loadedAt` | ✅ | ISO-8601 日期 |
 | `finishedAt` | | 不得早於 `loadedAt` |
-| `cameraName` / `lensName` | | ≤ 100 字 |
+| `cameraId` | | 必須是已存在的相機；相機片幅要能裝這個 `format`（半格機裝 `135`） |
+| `lensName` | | ≤ 100 字 |
 | `notes` | | ≤ 2000 字 |
 | `status` | POST 選填 / PUT 必填 | POST 未填預設 `LOADED` |
+
+### 相機請求欄位驗證規則
+
+| 欄位 | 必填 | 規則 |
+|---|---|---|
+| `brand` | | ≤ 50 字 |
+| `model` | ✅ | 非空白，≤ 100 字 |
+| `format` | ✅ | `"135"`、`"120"` 或 `"half-frame"` |
+| `fixedLens` / `shutterSpeedRange` | | ≤ 100 / ≤ 50 字；`interchangeableLens` 為 `true` 時不可填 `fixedLens` |
+| `isoMin` / `isoMax` | | 正整數，≤ 12800，下限不可大於上限 |
+| `notes` | | ≤ 2000 字 |
+
+品牌與型號會去頭尾空白、連續空白壓成一個；**同品牌同型號（不分大小寫）只能有一台**，重複回 `409`。
 
 ### 狀態流轉規則
 
@@ -123,7 +177,7 @@ LOADED ──> SHOOTING ──> DEVELOPING ──> ARCHIVED
 | `type` | 狀態 | 意義 |
 |---|---|---|
 | `urn:kokoroe:problem:validation-failed` | 400 | 欄位驗證未通過 |
-| `urn:kokoroe:problem:business-rule-violated` | 400 / 409 | 跨欄位規則或狀態衝突 |
+| `urn:kokoroe:problem:business-rule-violated` | 400 / 409 | 跨欄位規則、狀態衝突、同名相機、相機使用中 |
 | `urn:kokoroe:problem:malformed-request` | 400 | JSON 格式或參數型別錯誤 |
 | `urn:kokoroe:problem:resource-not-found` | 404 | 查無資源 |
 | `urn:kokoroe:problem:internal-error` | 500 | 非預期錯誤（細節僅入 log） |
@@ -142,7 +196,7 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 
 ## 目前進度
 
-後端第一階段刻意限定在 `FilmRoll` 單一實體，`cameraName` / `lensName` 先以字串儲存。
+後端第一階段刻意限定在 `FilmRoll` 單一實體；第二階段拆出 `Camera`，`lensName` 仍以字串儲存（目前的相機多為定焦機）。
 
 | 項目 | 狀態 |
 |---|---|
@@ -150,7 +204,8 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 | CI：GitHub Actions（後端 `mvnw test`；前端 lint、型別檢查、build）與 Dependabot | ✅ 完成 |
 | 前端垂直切片（Vite + React + TS + TanStack Query） | 🚧 進行中，見下方 |
 | 唱片櫃式卷期瀏覽（垂直捲動、當前卷期放大、無限捲動） | ⏳ 未開始 |
-| 拆出 `Camera` / `Lens` 實體，並以 Flyway migration 搬遷既有資料 | ⏳ 未開始 |
+| 拆出 `Camera` 實體（`/api/v1/cameras`），V2 migration 把舊的 `camera_name` 去重搬進 `camera` 並回填 | 🚧 進行中（後端完成，前端待改；舊欄位 `camera_name` 待下一支 migration 移除） |
+| 拆出 `Lens` 實體 | ⏳ 未開始 |
 | 沖掃成果（掃描圖檔）管理 | ⏳ 未開始 |
 | 容器化與部署（CD） | ⏳ 未開始 |
 

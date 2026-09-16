@@ -1,5 +1,7 @@
 package com.kokoroe.filmroll;
 
+import com.kokoroe.camera.Camera;
+import com.kokoroe.camera.CameraMapper;
 import com.kokoroe.filmroll.dto.CreateFilmRollRequest;
 import com.kokoroe.filmroll.dto.FilmRollResponse;
 
@@ -18,7 +20,8 @@ public final class FilmRollMapper {
         throw new AssertionError("工具類別不應被實例化");
     }
 
-    public static FilmRoll toEntity(CreateFilmRollRequest request) {
+    /** @param camera 由 Service 依 {@code request.cameraId()} 查好的相機，可為 null */
+    public static FilmRoll toEntity(CreateFilmRollRequest request, Camera camera) {
         return FilmRoll.create(
                 request.filmName(),
                 request.brand(),
@@ -27,7 +30,7 @@ public final class FilmRollMapper {
                 request.pushPullStops(),
                 request.loadedAt(),
                 request.finishedAt(),
-                request.cameraName(),
+                camera,
                 request.lensName(),
                 request.notes(),
                 request.status()
@@ -44,7 +47,7 @@ public final class FilmRollMapper {
                 entity.getPushPullStops(),
                 entity.getLoadedAt(),
                 entity.getFinishedAt(),
-                entity.getCameraName(),
+                CameraMapper.toSummary(entity.getCamera()),
                 entity.getLensName(),
                 entity.getNotes(),
                 entity.getStatus(),

@@ -1,6 +1,7 @@
 package com.kokoroe.filmroll;
 
 import com.kokoroe.TestcontainersConfiguration;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +14,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -43,29 +48,48 @@ class FilmRollIntegrationTest {
     @Autowired
     private FilmRollRepository filmRollRepository;
 
-    private static final String CREATE_BODY = """
-            {
-              "filmName": "Kodak Portra 400",
-              "brand": "Kodak",
-              "iso": 400,
-              "format": "135",
-              "pushPullStops": 1,
-              "loadedAt": "2026-03-01",
-              "cameraName": "Nikon FM2",
-              "lensName": "50mm f/1.4",
-              "notes": "櫻花季，推一格"
-            }
-            """;
+    /** 每個測試各自建一台相機；型號加上隨機字尾，避免撞到唯一索引，也不依賴測試執行順序。 */
+    private long cameraId;
+    private String createBody;
+
+    @BeforeEach
+    void createCamera() throws Exception {
+        String model = "FM2-" + UUID.randomUUID();
+        String camera = mockMvc.perform(post("/api/v1/cameras")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"brand": "Nikon", "model": "%s", "format": "135"}
+                                """.formatted(model)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        cameraId = objectMapper.readTree(camera).get("id").asLong();
+
+        createBody = """
+                {
+                  "filmName": "Kodak Portra 400",
+                  "brand": "Kodak",
+                  "iso": 400,
+                  "format": "135",
+                  "pushPullStops": 1,
+                  "loadedAt": "2026-03-01",
+                  "cameraId": %d,
+                  "lensName": "50mm f/1.4",
+                  "notes": "櫻花季，推一格"
+                }
+                """.formatted(cameraId);
+    }
 
     @Test
     @DisplayName("完整生命週期：新增 → 查詢 → 列表 → 更新 → 拒絕逆向流轉 → 刪除 → 查無")
     void shouldSupportFullLifecycle() throws Exception {
         // --- 新增 -------------------------------------------------------
         String created = mockMvc.perform(post("/api/v1/film-rolls")
-                        .contentType(MediaType.APPLICATION_JSON).content(CREATE_BODY))
+                        .contentType(MediaType.APPLICATION_JSON).content(createBody))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.format").value("135"))
                 .andExpect(jsonPath("$.status").value("LOADED"))
+                .andExpect(jsonPath("$.camera.id").value(cameraId))
+                .andExpect(jsonPath("$.camera.name").value(startsWith("Nikon FM2-")))
                 .andExpect(jsonPath("$.createdAt").exists())
                 .andReturn().getResponse().getContentAsString();
 
@@ -82,6 +106,9 @@ class FilmRollIntegrationTest {
         mockMvc.perform(get("/api/v1/film-rolls").param("status", "LOADED"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.id == %d)]".formatted(id)).exists())
+                // 列表走 @EntityGraph 一起抓相機，確認關聯有正確帶出來
+                .andExpect(jsonPath("$.content[?(@.id == %d)].camera.id".formatted(id))
+                        .value(contains((int) cameraId)))
                 .andExpect(jsonPath("$.size").value(20));
 
         // 篩選其他狀態時不該出現這筆
@@ -99,12 +126,12 @@ class FilmRollIntegrationTest {
                   "pushPullStops": 1,
                   "loadedAt": "2026-03-01",
                   "finishedAt": "2026-03-20",
-                  "cameraName": "Nikon FM2",
+                  "cameraId": %d,
                   "lensName": "50mm f/1.4",
                   "notes": "拍完了，送洗",
                   "status": "DEVELOPING"
                 }
-                """;
+                """.formatted(cameraId);
 
         mockMvc.perform(put("/api/v1/film-rolls/{id}", id)
                         .contentType(MediaType.APPLICATION_JSON).content(updateBody))
@@ -132,7 +159,7 @@ class FilmRollIntegrationTest {
     @DisplayName("JPA Auditing 應自動填入時間戳，且更新後 updatedAt 要往前走")
     void shouldPopulateAuditTimestamps() throws Exception {
         String created = mockMvc.perform(post("/api/v1/film-rolls")
-                        .contentType(MediaType.APPLICATION_JSON).content(CREATE_BODY))
+                        .contentType(MediaType.APPLICATION_JSON).content(createBody))
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
 
