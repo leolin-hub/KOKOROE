@@ -311,12 +311,18 @@ export default function FilmRollForm({
             })}
           </select>
         </Field>
-        <Field name="lensName" label="鏡頭" error={fieldErrors.lensName}>
+        <Field
+          name="lensName"
+          label="鏡頭"
+          hint="品牌、焦距與最大光圈；定焦機填機身內建的鏡頭"
+          error={fieldErrors.lensName}
+        >
           <input
             id="lensName"
             value={values.lensName ?? ''}
             onChange={(e) => setField('lensName', e.target.value || undefined)}
             maxLength={100}
+            placeholder="Leica 50mm f/2"
             {...errorProps('lensName')}
           />
         </Field>
