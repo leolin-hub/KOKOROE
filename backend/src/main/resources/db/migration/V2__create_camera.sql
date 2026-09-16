@@ -54,6 +54,10 @@ CREATE INDEX idx_film_roll_camera_id ON film_roll (camera_id);
 --    片幅取這台相機拍過最多次的底片規格（FORMAT_135 / FORMAT_120 與相機的值同名）。
 -- 3. 第一個空白前當品牌、之後當型號（'PENTAX PG-50' → 'PENTAX' + 'PG-50'）。
 --    沒有空白、或第一個字超過品牌欄位長度時，整串當型號，品牌留空。
+-- 4. 回填 camera_id 時只連「底片規格與相機片幅相同」的卷期。
+--    舊資料可能把同一個名稱同時用在 135 和 120（打錯字或同名不同機），
+--    少數那一邊若也連上，會違反應用層的相容規則，之後連推進狀態都會被擋下。
+--    沒連上的卷期保留 camera_name，camera_id 維持 NULL，由使用者自行指定相機。
 WITH normalized AS (
     SELECT btrim(regexp_replace(camera_name, '\s+', ' ', 'g')) AS name, format
     FROM film_roll
@@ -79,4 +83,6 @@ FROM split;
 UPDATE film_roll fr
 SET camera_id = c.id
 FROM camera c
-WHERE lower(btrim(regexp_replace(fr.camera_name, '\s+', ' ', 'g'))) = lower(concat_ws(' ', c.brand, c.model));
+WHERE lower(btrim(regexp_replace(fr.camera_name, '\s+', ' ', 'g'))) = lower(concat_ws(' ', c.brand, c.model))
+  -- 這裡建立的相機片幅只會是 FORMAT_135 / FORMAT_120，與卷期的值同名，直接比對即可
+  AND c.format = fr.format;

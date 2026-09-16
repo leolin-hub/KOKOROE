@@ -72,6 +72,9 @@ class CameraMigrationTest {
         insertRoll("Holga", "FORMAT_120");              // 沒有空白：整串當型號
         insertRoll(null, "FORMAT_135");
         insertRoll("   ", "FORMAT_135");                // 空白字串視同沒填
+        insertRoll("Nikon FM2", "FORMAT_135");
+        insertRoll("Nikon FM2", "FORMAT_135");
+        insertRoll("nikon fm2", "FORMAT_120");          // 同名但規格不同：相機取多數的 135，這卷不連
 
         flywayUpTo("2").migrate();
 
@@ -80,6 +83,7 @@ class CameraMigrationTest {
         assertThat(cameras)
                 .extracting(c -> c.get("brand"), c -> c.get("model"), c -> c.get("format"))
                 .containsExactly(
+                        tuple("Nikon", "FM2", "FORMAT_135"),
                         tuple(null, "Holga", "FORMAT_120"),
                         tuple("PENTAX", "PG-50", "FORMAT_135"),
                         tuple("Mamiya", "RB67", "FORMAT_120"));
@@ -92,9 +96,10 @@ class CameraMigrationTest {
         assertThat(rolls)
                 .extracting(r -> r.get("linked"))
                 .containsExactly("PENTAX PG-50", "PENTAX PG-50", "PENTAX PG-50",
-                        "Mamiya RB67", "Holga", "", "");
+                        "Mamiya RB67", "Holga", "", "",
+                        "Nikon FM2", "Nikon FM2", "");
 
-        // camera_name 這次先保留，下一支 migration 才移除
-        assertThat(rolls).extracting(r -> r.get("camera_name")).contains("Mamiya RB67");
+        // camera_name 這次先保留，下一支 migration 才移除；沒連上相機的卷期要靠它保留資訊
+        assertThat(rolls).extracting(r -> r.get("camera_name")).contains("Mamiya RB67", "nikon fm2");
     }
 }

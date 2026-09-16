@@ -1,5 +1,6 @@
 package com.kokoroe.common;
 
+import com.kokoroe.camera.CameraFormatConflictException;
 import com.kokoroe.camera.CameraInUseException;
 import com.kokoroe.camera.CameraNotFoundException;
 import com.kokoroe.camera.DuplicateCameraException;
@@ -78,8 +79,9 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, "狀態衝突", ex.getMessage(), TYPE_BUSINESS_RULE);
     }
 
-    /** 與既有資料衝突 → 409：同名相機已存在、相機還有卷期在用。 */
-    @ExceptionHandler({DuplicateCameraException.class, CameraInUseException.class})
+    /** 與既有資料衝突 → 409：同名相機已存在、相機還有卷期在用、改片幅會讓卷期不相容。 */
+    @ExceptionHandler({DuplicateCameraException.class, CameraInUseException.class,
+            CameraFormatConflictException.class})
     public ProblemDetail handleResourceConflict(RuntimeException ex) {
         return build(HttpStatus.CONFLICT, "資源衝突", ex.getMessage(), TYPE_BUSINESS_RULE);
     }

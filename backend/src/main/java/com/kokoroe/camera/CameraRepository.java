@@ -1,5 +1,6 @@
 package com.kokoroe.camera;
 
+import com.kokoroe.filmroll.FilmFormat;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -30,4 +31,9 @@ public interface CameraRepository extends JpaRepository<Camera, Long> {
      */
     @Query("select count(r) from FilmRoll r where r.camera.id = :cameraId")
     long countFilmRollsUsing(@Param("cameraId") Long cameraId);
+
+    /** 使用這台相機、但底片規格不是 {@code filmFormat} 的卷期數。改相機片幅前用來檢查。 */
+    @Query("select count(r) from FilmRoll r where r.camera.id = :cameraId and r.format <> :filmFormat")
+    long countFilmRollsWithOtherFormat(@Param("cameraId") Long cameraId,
+                                       @Param("filmFormat") FilmFormat filmFormat);
 }

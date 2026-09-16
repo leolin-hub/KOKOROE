@@ -121,6 +121,15 @@ class CameraIntegrationTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title").value("資源衝突"));
 
+        // --- 有 135 卷期時不能改成 120 片幅 ----------------------------------
+        mockMvc.perform(put("/api/v1/cameras/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"brand": "PENTAX", "model": "%s", "format": "120"}
+                                """.formatted(model)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("1 卷")));
+
         // --- 卷期刪掉後就能刪相機 -------------------------------------------
         mockMvc.perform(delete("/api/v1/film-rolls/{id}", rollId))
                 .andExpect(status().isNoContent());

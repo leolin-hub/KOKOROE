@@ -39,6 +39,7 @@ public class CameraService {
         // 一定要在修改實體「之前」檢查重複：修改後再查詢，Hibernate 會先自動 flush，
         // UPDATE 撞到唯一索引，拿到的就是籠統的資料庫例外，而不是 DuplicateCameraException。
         requireUnique(Camera.normalizeName(request.brand()), Camera.normalizeName(request.model()), id);
+        requireFormatFitsRolls(camera, request.format());
         CameraMapper.applyUpdate(camera, request);
 
         return CameraMapper.toResponse(cameraRepository.saveAndFlush(camera));
@@ -57,6 +58,17 @@ public class CameraService {
     private void requireUnique(String brand, String model, Long excludeId) {
         if (cameraRepository.existsDuplicate(brand, model, excludeId)) {
             throw new DuplicateCameraException(brand == null ? model : brand + " " + model);
+        }
+    }
+
+    /** 改片幅時，使用中的卷期必須都還裝得進新片幅；片幅沒變就不必查。 */
+    private void requireFormatFitsRolls(Camera camera, CameraFormat newFormat) {
+        if (newFormat == camera.getFormat()) {
+            return;
+        }
+        long conflicting = cameraRepository.countFilmRollsWithOtherFormat(camera.getId(), newFormat.getFilmFormat());
+        if (conflicting > 0) {
+            throw new CameraFormatConflictException(camera.getDisplayName(), newFormat, conflicting);
         }
     }
 

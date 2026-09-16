@@ -33,6 +33,11 @@ public enum CameraFormat {
         return code;
     }
 
+    /** 這個片幅的相機裝的底片規格（半格機裝 135）。 */
+    public FilmFormat getFilmFormat() {
+        return filmFormat;
+    }
+
     /** 這台相機能不能裝這個規格的底片。 */
     public boolean accepts(FilmFormat format) {
         return this.filmFormat == format;

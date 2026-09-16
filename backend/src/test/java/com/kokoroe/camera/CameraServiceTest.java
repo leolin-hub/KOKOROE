@@ -3,6 +3,7 @@ package com.kokoroe.camera;
 import com.kokoroe.camera.dto.CameraResponse;
 import com.kokoroe.camera.dto.CreateCameraRequest;
 import com.kokoroe.camera.dto.UpdateCameraRequest;
+import com.kokoroe.filmroll.FilmFormat;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -148,6 +149,53 @@ class CameraServiceTest {
 
             assertThat(existing.getDisplayName()).isEqualTo("PENTAX PG-50");
             verify(cameraRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("還有 135 卷期時不能把相機改成 120，且實體不得被修改")
+        void shouldRejectFormatChangeThatBreaksRolls() {
+            Camera existing = existingCamera(1L);
+            when(cameraRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(cameraRepository.existsDuplicate("PENTAX", "PG-50", 1L)).thenReturn(false);
+            when(cameraRepository.countFilmRollsWithOtherFormat(1L, FilmFormat.FORMAT_120)).thenReturn(2L);
+
+            UpdateCameraRequest request = new UpdateCameraRequest("PENTAX", "PG-50", CameraFormat.FORMAT_120,
+                    null, null, null, null, null, null, null, null, null, null);
+
+            assertThatThrownBy(() -> cameraService.update(1L, request))
+                    .isInstanceOf(CameraFormatConflictException.class)
+                    .hasMessageContaining("2 卷");
+
+            assertThat(existing.getFormat()).isEqualTo(CameraFormat.FORMAT_135);
+            verify(cameraRepository, never()).saveAndFlush(any());
+        }
+
+        @Test
+        @DisplayName("135 改成半格不影響底片規格，卷期都相容時應允許")
+        void shouldAllowFormatChangeCompatibleWithRolls() {
+            Camera existing = existingCamera(1L);
+            when(cameraRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(cameraRepository.existsDuplicate("PENTAX", "PG-50", 1L)).thenReturn(false);
+            when(cameraRepository.countFilmRollsWithOtherFormat(1L, FilmFormat.FORMAT_135)).thenReturn(0L);
+            when(cameraRepository.saveAndFlush(existing)).thenReturn(existing);
+
+            UpdateCameraRequest request = new UpdateCameraRequest("PENTAX", "PG-50", CameraFormat.HALF_FRAME,
+                    null, null, null, null, null, null, null, null, null, null);
+
+            assertThat(cameraService.update(1L, request).format()).isEqualTo(CameraFormat.HALF_FRAME);
+        }
+
+        @Test
+        @DisplayName("片幅沒變時不必查卷期")
+        void shouldSkipRollCheckWhenFormatUnchanged() {
+            Camera existing = existingCamera(1L);
+            when(cameraRepository.findById(1L)).thenReturn(Optional.of(existing));
+            when(cameraRepository.existsDuplicate("PENTAX", "PG-50", 1L)).thenReturn(false);
+            when(cameraRepository.saveAndFlush(existing)).thenReturn(existing);
+
+            cameraService.update(1L, updateRequest("PENTAX", "PG-50"));
+
+            verify(cameraRepository, never()).countFilmRollsWithOtherFormat(anyLong(), any());
         }
     }
 
