@@ -36,6 +36,20 @@ export const filmRollKeys = {
    */
   list: (params: FilmRollListParams) => [...filmRollKeys.lists(), params] as const,
 
+  /**
+   * 無限捲動的列表（唱片櫃瀏覽頁）。
+   *
+   * 刻意放在 `lists()` 底下：新增 / 更新 / 刪除卷期時 mutation 失效的是 `lists()`，
+   * 放在這裡就會一起被失效，不必每支 mutation 再多寫一行。
+   *
+   * 不能和 `list(params)` 共用同一個 key：`useQuery` 存的是單頁資料，
+   * `useInfiniteQuery` 存的是 `{ pages, pageParams }`，兩種形狀混在同一份快取會互相弄壞。
+   * 中間多一段 `'infinite'` 就把兩者分開了。
+   * 參數不含 page：頁碼由 useInfiniteQuery 自己管理。
+   */
+  infinite: (params: Omit<FilmRollListParams, 'page'>) =>
+    [...filmRollKeys.lists(), 'infinite', params] as const,
+
   /** 所有單筆查詢。 */
   details: () => [...filmRollKeys.all, 'detail'] as const,
 

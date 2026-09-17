@@ -3,6 +3,7 @@ import FilmRollListPage from './pages/FilmRollListPage'
 import FilmRollDetailPage from './pages/FilmRollDetailPage'
 import FilmRollCreatePage from './pages/FilmRollCreatePage'
 import FilmRollEditPage from './pages/FilmRollEditPage'
+import CrateBrowserPage from './pages/CrateBrowserPage'
 import CameraListPage from './pages/CameraListPage'
 import CameraCreatePage from './pages/CameraCreatePage'
 import CameraEditPage from './pages/CameraEditPage'
@@ -18,6 +19,7 @@ import styles from './App.module.css'
  *   /film-rolls/new        → 新增
  *   /film-rolls/:id        → 詳情
  *   /film-rolls/:id/edit   → 編輯
+ *   /crate                 → 唱片櫃瀏覽（篩選與排序同樣放在 query string）
  *   /cameras               → 相機列表
  *   /cameras/new           → 新增相機
  *   /cameras/:id/edit      → 編輯相機（含刪除；相機沒有獨立的詳情頁）
@@ -54,6 +56,12 @@ export default function App() {
             卷期
           </NavLink>
           <NavLink
+            to="/crate"
+            className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
+          >
+            唱片櫃
+          </NavLink>
+          <NavLink
             to="/cameras"
             className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
           >
@@ -69,6 +77,7 @@ export default function App() {
           <Route path="/film-rolls/new" element={<FilmRollCreatePage />} />
           <Route path="/film-rolls/:id" element={<FilmRollDetailPage />} />
           <Route path="/film-rolls/:id/edit" element={<FilmRollEditPage />} />
+          <Route path="/crate" element={<CrateBrowserPage />} />
           <Route path="/cameras" element={<CameraListPage />} />
           <Route path="/cameras/new" element={<CameraCreatePage />} />
           <Route path="/cameras/:id/edit" element={<CameraEditPage />} />

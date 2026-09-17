@@ -1,0 +1,129 @@
+/*
+ * 唱片櫃裡的一格。
+ *
+ * 焦點效果全部由 CSS 決定，React 只負責在 `.slot` 上給兩個值：
+ *   data-position="before" | "focused" | "after"   在焦點的上方、就是焦點、在焦點的下方
+ *   --distance: 0 ~ 3                               離焦點幾格（超過 3 格一律算 3）
+ * 這樣調整傾斜角度、縮放比例時只要改 CSS，不必碰元件。
+ */
+
+.slot {
+  /* 高度必須固定：頁面用「捲動距離 ÷ 一格高度」算出目前是第幾格 */
+  height: var(--crate-slot-height);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  /*
+   * 透視距離放在每一格上，而不是整個櫃子：perspective 只作用在「直接子元素」的 3D 變形，
+   * 傾斜的 .record 是 .slot 的子元素。每格各自的透視也讓每一卷都以自己的中心傾斜，看起來一致。
+   * 數字越小，傾斜看起來越誇張。
+   */
+  perspective: 900px;
+  --distance: 0;
+}
+
+.record {
+  display: grid;
+  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-6);
+  width: min(100%, 34rem);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  transform-origin: center;
+  transition:
+    transform 0.35s ease,
+    opacity 0.35s ease,
+    border-color 0.35s ease;
+}
+
+/* 焦點上方的卷期：上緣往後倒；下方的卷期：下緣往後倒。越遠倒得越多、越小、越淡。 */
+.slot[data-position='before'] .record {
+  transform: rotateX(calc(var(--distance) * 14deg)) scale(calc(1 - var(--distance) * 0.08));
+  opacity: calc(1 - var(--distance) * 0.22);
+}
+
+.slot[data-position='after'] .record {
+  transform: rotateX(calc(var(--distance) * -14deg)) scale(calc(1 - var(--distance) * 0.08));
+  opacity: calc(1 - var(--distance) * 0.22);
+}
+
+.slot[data-position='focused'] .record {
+  transform: scale(1.04);
+  border-color: var(--color-text-muted);
+}
+
+.artworkLink {
+  display: block;
+  border-radius: var(--radius-sm);
+}
+
+.artworkLink:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+/* 規格列：ISO · 135 · PENTAX PG-50，像底片盒側邊的小字 */
+.meta {
+  margin: 0;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  color: var(--color-text-muted);
+}
+
+/* 非焦點的卷期只露出外觀與標題，詳細資訊收起來，避免一整排字互相干擾 */
+.details {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  transition: opacity 0.35s ease;
+}
+
+.slot:not([data-position='focused']) .details {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.detailLink {
+  align-self: flex-start;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 600px) {
+  .record {
+    grid-template-columns: minmax(0, 7rem) minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+
+  .title {
+    font-size: 1.0625rem;
+  }
+}
+
+/* 使用者要求減少動態：不傾斜、不縮放、不做過場，只保留透明度區分焦點 */
+@media (prefers-reduced-motion: reduce) {
+  .record,
+  .details {
+    transition: none;
+  }
+
+  .slot[data-position] .record {
+    transform: none;
+  }
+}

@@ -203,7 +203,7 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 | 後端 `FilmRoll` CRUD（本文件描述的範圍） | ✅ 完成 |
 | CI：GitHub Actions（後端 `mvnw test`；前端 lint、型別檢查、build）與 Dependabot | ✅ 完成 |
 | 前端垂直切片（Vite + React + TS + TanStack Query） | 🚧 進行中，見下方 |
-| 唱片櫃式卷期瀏覽（垂直捲動、當前卷期放大、無限捲動） | ⏳ 未開始 |
+| 唱片櫃式卷期瀏覽（垂直捲動、當前卷期放大、無限捲動） | 🚧 進行中（`/crate` 骨架完成，TODO 待實作） |
 | 拆出 `Camera` 實體（`/api/v1/cameras`），V2 migration 把舊的 `camera_name` 去重搬進 `camera` 並回填 | ✅ 完成（前端表單改為相機下拉選單；V3 移除舊欄位 `camera_name`，沒連上相機的舊名稱補進備註） |
 | 相機管理頁（`/cameras` 列表、新增、編輯與刪除） | ✅ 完成 |
 | 拆出 `Lens` 實體 | ⏳ 未開始 |
