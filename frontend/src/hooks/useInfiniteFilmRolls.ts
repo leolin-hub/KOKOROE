@@ -1,5 +1,9 @@
 import type { InfiniteData, UseInfiniteQueryResult } from '@tanstack/react-query'
+import { useInfiniteQuery } from '@tanstack/react-query'
 import type { FilmRollListParams, FilmRollResponse, PageResponse } from '../types/filmRoll'
+import { listFilmRolls } from '../api/filmRolls'
+import { filmRollKeys } from './queryKeys'
+import { DEFAULT_PAGE_SIZE } from '../lib/constants'
 
 /**
  * 無限捲動的卷期列表：一次抓一頁，捲到快底時再抓下一頁，全部接在一起。
@@ -44,6 +48,10 @@ import type { FilmRollListParams, FilmRollResponse, PageResponse } from '../type
 export function useInfiniteFilmRolls(
   params: Omit<FilmRollListParams, 'page'>,
 ): UseInfiniteQueryResult<InfiniteData<PageResponse<FilmRollResponse>, number>, Error> {
-  void params
-  throw new Error('TODO(你來寫)：useInfiniteFilmRolls')
+  return useInfiniteQuery({
+    queryKey: filmRollKeys.infinite(params),
+    queryFn: ({ pageParam }) => listFilmRolls({ ...params, page: pageParam, size: DEFAULT_PAGE_SIZE }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage) => (lastPage.last ? undefined : lastPage.page + 1),
+  })
 }

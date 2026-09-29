@@ -1,4 +1,14 @@
 import styles from './CrateBrowserPage.module.css'
+import { type ReactNode, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
+import { useInfiniteFilmRolls } from '../hooks/useInfiniteFilmRolls'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
+import { parseStatus, parseSort, DEFAULT_SORT } from '../lib/listParams'
+import { crateLinkState } from '../lib/backLink'
+import CrateItem from '../components/CrateItem'
+import FilmRollFilters from '../components/FilmRollFilters'
+import ErrorBanner from '../components/ErrorBanner'
+import type { FilmRollStatus } from '../types/filmRoll'
 
 /**
  * 唱片櫃瀏覽頁。路由 `/crate`。
@@ -120,10 +130,144 @@ import styles from './CrateBrowserPage.module.css'
  *   `[...new Map(rolls.map((r) => [r.id, r])).values()]`
  */
 export default function CrateBrowserPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const status = parseStatus(searchParams.get('status'))
+  const sort = parseSort(searchParams.get('sort'))
+  const { data, isPending, isError, error, refetch, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteFilmRolls({ status, sort })
+  const rolls = data ? data.pages.flatMap((p) => p.content) : []
+  const navigate = useNavigate()
+  // 點進詳情頁時帶著目前的篩選條件，詳情頁的「← 回到唱片櫃」才能回到同一個篩選
+  const linkState = crateLinkState(searchParams.toString())
+
+  const [focusedIndex, setFocusedIndex] = useState(0)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLOListElement>(null)
+
+  function handleScroll() {
+    const viewport = viewportRef.current
+    const slotHeight = listRef.current?.firstElementChild?.clientHeight
+    if (!viewport || !slotHeight) return
+    const index = Math.round(viewport.scrollTop / slotHeight)
+    setFocusedIndex(Math.min(index, rolls.length - 1))
+  }
+
+  const reducedMotion = usePrefersReducedMotion()
+
+  function scrollToIndex(index: number) {
+    const slotHeight = listRef.current?.firstElementChild?.clientHeight ?? 0
+    viewportRef.current?.scrollTo({ top: index * slotHeight, behavior: reducedMotion ? 'auto' : 'smooth' })
+  }
+
+  function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'ArrowDown') {
+      scrollToIndex(Math.min(focusedIndex + 1, rolls.length - 1))
+      e.preventDefault()
+    } else if (e.key === 'ArrowUp') {
+      scrollToIndex(Math.max(focusedIndex - 1, 0))
+      e.preventDefault()
+    } else if (e.key === 'Home') {
+      scrollToIndex(0)
+      e.preventDefault()
+    } else if (e.key === 'End') {
+      scrollToIndex(rolls.length - 1)
+      e.preventDefault()
+    } else if (e.key === 'Enter') {
+      const roll = rolls[focusedIndex]
+      if (roll) navigate(`/film-rolls/${roll.id}`, { state: linkState })
+      e.preventDefault()
+    }
+  }
+
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage && focusedIndex >= rolls.length - 3) {
+      void fetchNextPage()
+    }
+  }, [hasNextPage, isFetchingNextPage, focusedIndex, rolls.length, fetchNextPage])
+
+  function updateSearchParams(update: (next: URLSearchParams) => void) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      update(next)
+      return next
+    })
+  }
+
+  function resetFocus() {
+    setFocusedIndex(0)
+    viewportRef.current?.scrollTo({ top: 0 })
+  }
+
+  function handleStatusChange(nextStatus: FilmRollStatus | undefined) {
+    updateSearchParams((next) => {
+      if (nextStatus) next.set('status', nextStatus)
+      else next.delete('status')
+    })
+    resetFocus()
+  }
+
+  function handleSortChange(nextSort: string) {
+    updateSearchParams((next) => {
+      if (nextSort === DEFAULT_SORT) next.delete('sort')
+      else next.set('sort', nextSort)
+    })
+    resetFocus()
+  }
+
+  let content: ReactNode
+  if (isPending) {
+    content = <p className={styles.message}>載入中…</p>
+  } else if (isError) {
+    content = <ErrorBanner error={error} onRetry={() => void refetch()} />
+  } else if (rolls.length > 0) {
+    content = (
+      <>
+        <div
+          ref={viewportRef}
+          className={styles.viewport}
+          tabIndex={0}
+          onScroll={handleScroll}
+          onKeyDown={handleKeyDown}
+          aria-label="卷期唱片櫃，用上下方向鍵切換"
+        >
+          <ol ref={listRef} className={styles.list}>
+            {rolls.map((roll, index) => (
+              <CrateItem key={roll.id} roll={roll} offset={index - focusedIndex} linkState={linkState} />
+            ))}
+          </ol>
+          {isFetchingNextPage && <p className={styles.loadingMore}>載入更多…</p>}
+        </div>
+        <p className={styles.hint}>↑ ↓ 切換 · Enter 查看詳情</p>
+      </>
+    )
+  } else {
+    content = (
+      <div className={styles.message}>
+        {status ? (
+          <p>沒有符合的卷期。</p>
+        ) : (
+          <>
+            <p>唱片櫃是空的。</p>
+            <Link to="/film-rolls/new" className={styles.link}>
+              來裝第一卷吧
+            </Link>
+          </>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>唱片櫃</h1>
-      <p className={styles.placeholder}>TODO(你來寫)：CrateBrowserPage，實作順序見 frontend/README.md 第 5 階段</p>
+      <header className={styles.toolbar}>
+        <h1 className={styles.title}>唱片櫃</h1>
+        {data && data.pages[0].totalElements > 0 && (
+          <p className={styles.counter}>
+            第 {focusedIndex + 1} / {data.pages[0].totalElements} 卷
+          </p>
+        )}
+        <FilmRollFilters status={status} sort={sort} onStatusChange={handleStatusChange} onSortChange={handleSortChange} />
+      </header>
+      {content}
     </div>
   )
 }

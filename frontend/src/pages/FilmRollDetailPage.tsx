@@ -1,6 +1,6 @@
 import { Fragment } from 'react'
 import type { ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useFilmRoll } from '../hooks/useFilmRoll'
 import { useDeleteFilmRoll, useUpdateFilmRoll } from '../hooks/useFilmRollMutations'
 import StatusBadge from '../components/StatusBadge'
@@ -15,14 +15,15 @@ import {
 } from '../lib/format'
 import { FORMAT_OPTIONS, STATUS_LABELS, STATUS_ORDER } from '../lib/constants'
 import { toUpdateRequest } from '../lib/toUpdateRequest'
+import { readBackLink } from '../lib/backLink'
 import type { FilmRollStatus } from '../types/filmRoll'
 import styles from './FilmRollDetailPage.module.css'
 
 /**
  * 卷期詳情頁。路由 `/film-rolls/:id`。
  *
- * 【影響畫面】列表頁點一張卡片進來的頁面，由上到下：
- *   ← 回到列表
+ * 【影響畫面】列表頁點一張卡片（或唱片櫃點一卷）進來的頁面，由上到下：
+ *   ← 回到列表（從唱片櫃進來時是「← 回到唱片櫃」，見 `lib/backLink.ts`）
  *   標題（Kodak Portra 400）＋ 狀態 badge
  *   欄位清單：ISO、規格、增減感、裝片日期、拍完日期、相機、鏡頭、備註
  *   推進狀態按鈕（例如「推進到：沖洗中」）＋ 編輯連結
@@ -46,6 +47,8 @@ export default function FilmRollDetailPage() {
   const { id } = useParams<{ id: string }>()
   const rollId = Number(id)
   const navigate = useNavigate()
+  const location = useLocation()
+  const back = readBackLink(location.state)
   const updateMutation = useUpdateFilmRoll()
   const deleteMutation = useDeleteFilmRoll()
   const { data: roll, isPending, isError, error, refetch } = useFilmRoll(rollId, {
@@ -53,8 +56,8 @@ export default function FilmRollDetailPage() {
   })
 
   const backLink = (
-    <Link to="/film-rolls" className={styles.back}>
-      ← 回到列表
+    <Link to={back.to} className={styles.back}>
+      ← {back.label}
     </Link>
   )
 
@@ -73,7 +76,7 @@ export default function FilmRollDetailPage() {
   }
 
   if (deleteMutation.isSuccess) {
-    return renderMessage(<p className={styles.message}>已刪除，正在回到列表…</p>)
+    return renderMessage(<p className={styles.message}>已刪除，正在{back.label}…</p>)
   }
 
   if (isPending) {
@@ -117,7 +120,7 @@ export default function FilmRollDetailPage() {
     if (!window.confirm(`確定要刪除「${title}」嗎？此動作無法復原。`)) return
     // hook 裡的 onSuccess 負責快取；跳頁只有這一頁需要，寫在這裡。兩個都會執行（hook 的先）。
     deleteMutation.mutate(rollId, {
-      onSuccess: () => navigate('/film-rolls', { replace: true }),
+      onSuccess: () => navigate(back.to, { replace: true }),
     })
   }
 
@@ -152,7 +155,7 @@ export default function FilmRollDetailPage() {
             推進到：{STATUS_LABELS[status]}
           </button>
         ))}
-        <Link to={`/film-rolls/${rollId}/edit`} className={styles.editLink}>
+        <Link to={`/film-rolls/${rollId}/edit`} state={location.state} className={styles.editLink}>
           編輯
         </Link>
       </div>

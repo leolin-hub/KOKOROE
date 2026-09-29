@@ -1,6 +1,10 @@
 import FilmCanisterSvg from './FilmCanisterSvg'
 import type { FilmRollResponse } from '../types/filmRoll'
 import styles from './RollArtwork.module.css'
+import { useState } from 'react'
+import { findFilmStockImage } from '../lib/filmStockImage'
+import { canisterColors } from '../lib/canisterColors'
+import { formatRollTitle } from '../lib/format'
 
 interface RollArtworkProps {
   roll: FilmRollResponse
@@ -48,11 +52,34 @@ interface RollArtworkProps {
  * - `imageFailed` 是這個元件自己的 state：如果同一個 RollArtwork 換成顯示另一卷，舊的失敗狀態會殘留。
  *   唱片櫃用 `key={roll.id}` 渲染，換卷就是換一個元件，所以不會發生；但要知道這個前提。
  */
-export default function RollArtwork(props: RollArtworkProps) {
-  void props
+export default function RollArtwork({ roll }: RollArtworkProps) {
+  const imageUrl = findFilmStockImage(roll.brand, roll.filmName)
+  const [imageFailed, setImageFailed] = useState(false)
+  const title = formatRollTitle(roll.filmName, roll.brand)
+
+  if (imageUrl && !imageFailed) {
+    return (
+      <div className={styles.artwork}>
+        <img
+          className={styles.photo}
+          src={imageUrl}
+          alt={`${title} 底片捲`}
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+        />
+      </div>
+    )
+  }
+
+  const colors = canisterColors(title)
   return (
     <div className={styles.artwork}>
-      <FilmCanisterSvg bodyColor="hsl(30 20% 40%)" labelColor="hsl(30 20% 85%)" title="TODO" subtitle="RollArtwork" />
+      <FilmCanisterSvg
+        bodyColor={colors.body}
+        labelColor={colors.label}
+        title={roll.brand ?? roll.filmName}
+        subtitle={`ISO ${roll.iso}`}
+      />
     </div>
   )
 }

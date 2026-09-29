@@ -85,6 +85,7 @@
   font-size: 0.8125rem;
   letter-spacing: 0.02em;
   color: var(--color-text-muted);
+  transition: opacity 0.35s ease;
 }
 
 /* 非焦點的卷期只露出外觀與標題，詳細資訊收起來，避免一整排字互相干擾 */
@@ -95,6 +96,11 @@
   transition: opacity 0.35s ease;
 }
 
+/*
+ * 規格列也一起收起來：它本來就是淡色小字，再乘上 .record 的淡出，
+ * 隔一格的對比就掉到 3:1 以下，留著只是一排看不清楚的字。
+ */
+.slot:not([data-position='focused']) .meta,
 .slot:not([data-position='focused']) .details {
   opacity: 0;
   pointer-events: none;
@@ -119,6 +125,7 @@
 /* 使用者要求減少動態：不傾斜、不縮放、不做過場，只保留透明度區分焦點 */
 @media (prefers-reduced-motion: reduce) {
   .record,
+  .meta,
   .details {
     transition: none;
   }

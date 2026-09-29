@@ -21,7 +21,17 @@
  *   2. 在下面加一行 `KodakPortra400: 'KodakPortra400.webp',`
  */
 export const FILM_STOCK_IMAGES: Readonly<Record<string, string>> = {
-  // KodakPortra400: 'KodakPortra400.webp',
+  KodakPortra400: 'KodakPortra400.jpg',
+  FujiFilmFujiColor200: 'FujiFilm200.jpg',
+  IlfordPan200: 'IlfordPan200.jpg',
+  KodakUltraMax400: 'KodakUltraMax400.jpg',
+  LomographyLomoChromeClassicolor200: 'LomoChromeClassicolor200.jpg',
+  LomographyLomoChromeTurquoise: 'LomoChromeTurquoise.jpg',
+  RetoColorPrism400: 'RetoColorPrism400.jpg',
+  FilmNeverDieZatsu400: 'FilmNeverDieZatsu400.jpg',
+  KodakGold200: 'KodakGold200.jpg',
+  LomographyLomoChromeMetropolis: 'LomoChromeMetropolis.jpg',
+  KodakColorplus200: 'KodakColorplus200.jpg',
 }
 
 /**
@@ -54,9 +64,10 @@ export const FILM_STOCK_IMAGES: Readonly<Record<string, string>> = {
  *   大小寫不一致（使用者輸入 `portra`）交給下面的 `findFilmStockImage` 用不分大小寫的比對處理。
  */
 export function toFilmStockKey(brand: string | undefined, filmName: string): string {
-  void brand
-  void filmName
-  return ''
+  const key = `${brand ?? ''} ${filmName}`
+  const keySplit = key.split(/[^\p{L}\p{N}]+/u).filter(Boolean)
+  const keyCamel = keySplit.map((s) => s.charAt(0).toUpperCase() + s.slice(1)).join('')
+  return keyCamel
 }
 
 /**
@@ -85,7 +96,7 @@ export function toFilmStockKey(brand: string | undefined, filmName: string): str
  *   對照表只有幾十筆時完全沒差；真的變大時，可以在 module 層先建一次「小寫 key → 檔名」的 Map。
  */
 export function findFilmStockImage(brand: string | undefined, filmName: string): string | undefined {
-  void brand
-  void filmName
-  return undefined
+  const key = toFilmStockKey(brand, filmName).toLowerCase()
+  const entry = Object.entries(FILM_STOCK_IMAGES).find(([n]) => n.toLowerCase() === key)
+  return entry ? `/film-stocks/${entry[1]}` : undefined
 }

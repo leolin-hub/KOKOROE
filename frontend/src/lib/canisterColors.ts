@@ -34,8 +34,11 @@ export interface CanisterColors {
  *   不加 `>>> 0` 的話結果可能是負數，後面 `% 360` 會得到負的色相。
  */
 export function hashString(value: string): number {
-  void value
-  return 0
+  let hash = 0
+  for (let i = 0; i < value.length; i++) {
+    hash = Math.imul(hash, 31) + value.charCodeAt(i)
+  }
+  return hash >>> 0
 }
 
 /**
@@ -62,6 +65,9 @@ export function hashString(value: string): number {
  *   傳 `formatRollTitle(filmName, brand)` 就會分開。呼叫端（RollArtwork）決定。
  */
 export function canisterColors(seed: string): CanisterColors {
-  void seed
-  return { body: 'hsl(30 20% 40%)', label: 'hsl(30 20% 85%)' }
+  const hue = hashString(seed) % 360
+  return {
+    body: `hsl(${hue} 55% 42%)`,
+    label: `hsl(${hue} 35% 88%)`,
+  }
 }

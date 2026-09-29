@@ -1,3 +1,4 @@
+import { useSyncExternalStore } from 'react'
 /**
  * 使用者是否在作業系統開了「減少動態效果」。
  *
@@ -38,6 +39,18 @@
  * 【坑】subscribe 和 getSnapshot 一定要定義在元件外面（或用 useCallback 固定）。
  *   寫在 hook 裡的話每次 render 都是新函式，React 會每次重新訂閱。
  */
+const QUERY = '(prefers-reduced-motion: reduce)'
+
+function subscribe(onChange: () => void) {
+  const mql = window.matchMedia(QUERY)
+  mql.addEventListener('change', onChange)
+  return () => mql.removeEventListener('change', onChange)
+}
+
+function getSnapshot() {
+  return window.matchMedia(QUERY).matches
+}
+
 export function usePrefersReducedMotion(): boolean {
-  return false
+  return useSyncExternalStore(subscribe, getSnapshot, () => false)
 }

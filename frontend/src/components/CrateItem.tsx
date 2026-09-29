@@ -1,5 +1,11 @@
 import type { FilmRollResponse } from '../types/filmRoll'
 import styles from './CrateItem.module.css'
+import { Link } from 'react-router'
+import type { CSSProperties } from 'react'
+import RollArtwork from './RollArtwork'
+import StatusBadge from './StatusBadge'
+import { formatRollTitle, formatDate } from '../lib/format'
+import { FORMAT_OPTIONS } from '../lib/constants'
 
 interface CrateItemProps {
   roll: FilmRollResponse
@@ -8,6 +14,8 @@ interface CrateItemProps {
    * 0 是焦點本身，-1 是焦點的上一卷，2 是下兩卷，依此類推。
    */
   offset: number
+  /** 點進詳情頁時帶過去的 `state`，讓詳情頁的返回連結回到唱片櫃（見 `lib/backLink.ts`）。 */
+  linkState: unknown
 }
 
 /**
@@ -58,7 +66,48 @@ interface CrateItemProps {
  * - 一行規格用陣列組：`[`ISO ${roll.iso}`, formatLabel, roll.camera?.name].filter(Boolean).join(' · ')`，
  *   不要用一串 `&&` 拼字串，沒有相機時會多出一個 ` · ` 或 `undefined`。
  */
-export default function CrateItem(props: CrateItemProps) {
-  void props
-  return <li className={styles.slot}>TODO(你來寫)：CrateItem</li>
+export default function CrateItem({ roll, offset, linkState }: CrateItemProps) {
+  const position = offset === 0 ? 'focused' : offset < 0 ? 'before' : 'after'
+  const distance = Math.min(Math.abs(offset), 3)
+  const formatLabel = FORMAT_OPTIONS.find((f) => f.value === roll.format)?.label
+  const title = formatRollTitle(roll.filmName, roll.brand)
+
+  return (
+    <li
+      className={styles.slot}
+      data-position={position}
+      style={{ '--distance': distance } as CSSProperties}
+      aria-current={offset === 0 ? 'true' : undefined}
+    >
+      <div className={styles.record}>
+        <Link
+          to={`/film-rolls/${roll.id}`}
+          state={linkState}
+          className={styles.artworkLink}
+          tabIndex={offset === 0 ? undefined : -1}
+          aria-label={`${title} 詳情`}
+        >
+          <RollArtwork roll={roll} />
+        </Link>
+        <div className={styles.info}>
+          <h2 className={styles.title}>{title}</h2>
+          <p className={styles.meta}>
+            {[`ISO ${roll.iso}`, formatLabel, roll.camera?.name].filter(Boolean).join(' · ')}
+          </p>
+          <div className={styles.details}>
+            <StatusBadge status={roll.status} />
+            <span>{formatDate(roll.loadedAt)}</span>
+            <Link
+              to={`/film-rolls/${roll.id}`}
+              state={linkState}
+              className={styles.detailLink}
+              tabIndex={offset === 0 ? undefined : -1}
+            >
+              查看詳情 →
+            </Link>
+          </div>
+        </div>
+      </div>
+    </li>
+  )
 }
