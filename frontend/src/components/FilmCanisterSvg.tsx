@@ -1,95 +1,346 @@
+import { useEffect, useId, useRef, useState } from 'react'
+import type { FilmFormat } from '../types/filmRoll'
+import type { CanisterPalette } from '../lib/canisterColors'
+import type { FilmType } from '../lib/filmType'
+import type { DxCode } from '../lib/dxCode'
+import { hashString } from '../lib/canisterColors'
+import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import styles from './RollArtwork.module.css'
 
-interface FilmCanisterSvgProps {
-  /** 罐身主色，例如 `'hsl(32 62% 46%)'`。由 `lib/canisterColors.ts` 依底片名稱算出。 */
-  bodyColor: string
-  /** 標籤帶的顏色，和罐身形成對比。 */
-  labelColor: string
-  /** 標籤上的大字，通常是品牌（沒有品牌時用底片名稱）。 */
-  title: string
-  /** 標籤上的小字，例如 `'ISO 400'`。 */
-  subtitle: string
-}
-
-/** 標籤帶內可放文字的寬度（viewBox 單位）：標籤寬 84，左右各留 4。 */
-const LABEL_TEXT_WIDTH = 76
-
-/**
- * 估算一行文字在 SVG 裡的寬度，超過 `maxWidth` 時回傳要壓縮到的長度，否則回傳 undefined。
+/*
+ * 寫實的 135 底片罐，稍微俯視（看得到橢圓頂蓋）。
  *
- * 不能無條件設 `textLength`：它會把文字「剛好」撐到那個長度，短字（例如 `Kodak`）會被拉得很開。
- * 所以只在估計會超出時才設，搭配 `lengthAdjust="spacingAndGlyphs"` 把字形與間距一起壓窄。
+ * 【這支已經寫好】畫圖不是學習重點；你要寫的是餵給它的資料：配色、DX 格子、底片種類。
  *
- * 估算方式：全形字（中日韓）約等於字級，半形字約 0.62 倍字級（粗體無襯線字體的平均值）。
- * 不需要精準 —— 估大了只是提早壓縮一點點，估小了最多超出一兩個單位。
- * 精準量測要用 `getComputedTextLength()`，但那得等元素掛上畫面才能量，會多一次 render。
+ * 寫實感幾乎都來自光影，不是幾何：
+ *   1. 標籤「包」在圓柱上：把攤平的標籤切成 28 條直條，每條依它在圓周上的角度水平壓縮，
+ *      靠近兩側的字自然變窄。這一步讓字看起來是印在罐子上，而不是貼在平面上。
+ *   2. 疊一層水平漸層：兩側暗、偏左一條高光。
+ *   3. 金屬蓋：橢圓頂面、壓邊的溝紋、中間凸起的軸心。
+ *   4. 片頭從右側的遮光絨縫口拉出來，齒孔沿著上下緣橫排（底片是橫著拉出來的）。
+ *
+ * 轉動：光影固定、只移動標籤，看起來像罐子在固定的光源下轉。
+ * 每一幀直接改 28 個 <use> 的 transform，不經過 React state —— 一秒 60 次 re-render 太浪費。
+ * JSX 裡的 transform 永遠是「角度 0」的固定字串，React 比對時值沒變就不會去動 DOM，所以不會蓋掉轉到一半的角度。
+ *
+ * 共用的漸層、裁切區與濾鏡在 `CanisterDefs`，整個 app 只 render 一次（App.tsx）。
+ * 每個罐子只有自己的標籤內容需要獨立的 id（用 useId 產生）。
  */
-function fitTextLength(text: string, fontSize: number, maxWidth: number): number | undefined {
-  let width = 0
-  for (const char of text) {
-    width += /[　-鿿가-힯＀-￯]/.test(char) ? fontSize : fontSize * 0.62
+
+// 罐身寬 100（半徑 R = 50），中心 x = 90。標籤攤平的長度 = 圓周 2πR，正面看得到半圈。
+const CX = 90
+const R = 50
+const STRIP_COUNT = 28
+const LABEL_LENGTH = 2 * Math.PI * R
+const FRONT_CENTER = (Math.PI * R) / 2
+const SPIN_SPEED = LABEL_LENGTH / 7 // 每秒轉 1/7 圈
+
+/** 正面第 i 條直條在螢幕上的 x 範圍（sx0～sx1），以及它對應到標籤上的哪一段（u0 起、長 du）。 */
+const STRIPS = Array.from({ length: STRIP_COUNT }, (_, i) => {
+  const t0 = -Math.PI / 2 + (i * Math.PI) / STRIP_COUNT
+  const t1 = t0 + Math.PI / STRIP_COUNT
+  return {
+    sx0: CX + R * Math.sin(t0),
+    sx1: CX + R * Math.sin(t1),
+    u0: R * (t0 + Math.PI / 2),
+    du: (R * Math.PI) / STRIP_COUNT,
   }
-  return width > maxWidth ? maxWidth : undefined
+})
+
+/** 把標籤上 [u0, u0 + du] 這一段，壓縮後搬到螢幕上 [sx0, sx1]。offset 是轉動的量。 */
+function stripTransform(offset: number, i: number): string {
+  const s = STRIPS[i]
+  const u0 = s.u0 + (((offset % LABEL_LENGTH) + LABEL_LENGTH) % LABEL_LENGTH)
+  const k = (s.sx1 - s.sx0) / s.du
+  return `matrix(${k.toFixed(5)} 0 0 1 ${(s.sx0 - u0 * k).toFixed(3)} 0)`
+}
+
+const FILM_TYPE_PRINT: Record<FilmType, { line: string; process: string; base: string }> = {
+  color: { line: 'COLOR NEGATIVE FILM', process: 'PROCESS C-41', base: '#b4652e' },
+  bw: { line: 'BLACK & WHITE FILM', process: 'B&W PROCESS', base: '#3b3835' },
+  slide: { line: 'COLOR REVERSAL FILM', process: 'PROCESS E-6', base: '#55585c' },
 }
 
 /**
- * 沒有底片捲照片時的替代外觀：一個風格化的 135 底片罐。
- *
- * 【這支已經寫好】畫圖不是這一步的學習重點；你要寫的是 RollArtwork 裡「用照片還是用這支」的判斷。
- *
- * - 不畫任何品牌 logo，只用顏色和文字，避開商標圖像的問題。
- * - `viewBox` 固定、寬高交給 CSS：SVG 會跟著外框縮放，不需要傳尺寸進來。
- * - `role="img"` 加 `aria-label`：對螢幕閱讀器來說整張是一張圖，不要逐一念出裡面的 `<text>`。
- * - 金屬蓋、片舌的顏色寫在 CSS（`.canisterMetal`、`.canisterLeader`），不跟著底片變色。
- * - 標籤文字太長時壓縮成標籤寬度（見 `fitTextLength`）；SVG 的 `<text>` 不會自動換行，不壓縮就會跑出罐子外。
- *   字級 13 / 10 要和 RollArtwork.module.css 的 `.canisterTitle` / `.canisterSubtitle` 一致。
+ * 估算字級：一行字超過 width 時縮小。SVG 的 <text> 不會自動換行，不縮就會跑到罐子外。
+ * ratio 是一個字大約佔字級的幾倍寬（窄體粗字約 0.5），spacing 是字距。估算即可，不需要精準。
  */
-export default function FilmCanisterSvg({ bodyColor, labelColor, title, subtitle }: FilmCanisterSvgProps) {
-  const titleLength = fitTextLength(title, 13, LABEL_TEXT_WIDTH)
-  const subtitleLength = fitTextLength(subtitle, 10, LABEL_TEXT_WIDTH)
+function fitFontSize(text: string, max: number, width: number, ratio: number, spacing = 0): number {
+  return Math.min(max, (width / Math.max(text.length, 1) - spacing) / ratio)
+}
+
+/** ISO 換成 DIN 度數，罐子上印成 `ISO 400/27°`。 */
+function dinDegrees(iso: number): number {
+  return Math.round(10 * Math.log10(iso) + 1)
+}
+
+interface FilmCanisterSvgProps {
+  brand?: string
+  /** 已經拿掉品牌與 ISO 的片名，例如 `'Portra'`（見 `labelFilmName`） */
+  name: string
+  iso: number
+  format: FilmFormat
+  palette: CanisterPalette
+  filmType: FilmType
+  dx: DxCode
+  /** 焦點卷期：加上顆粒，滑鼠移上去會轉動。非焦點的不加，捲動時少一點繪製成本。 */
+  focused?: boolean
+}
+
+export default function FilmCanisterSvg({ brand, name, iso, format, palette, filmType, dx, focused = false }: FilmCanisterSvgProps) {
+  const labelId = `canister-label-${useId().replace(/[^\w-]/g, '')}`
+  const usesRef = useRef<(SVGUseElement | null)[]>([])
+  const offsetRef = useRef(0)
+  const [hovering, setHovering] = useState(false)
+  const reducedMotion = usePrefersReducedMotion()
+  const spinning = focused && hovering && !reducedMotion
+
+  useEffect(() => {
+    if (!spinning) return
+    let frame = 0
+    let last = 0
+    const step = (time: number) => {
+      if (last) offsetRef.current += SPIN_SPEED * Math.min((time - last) / 1000, 0.1)
+      last = time
+      usesRef.current.forEach((use, i) => use?.setAttribute('transform', stripTransform(offsetRef.current, i)))
+      frame = requestAnimationFrame(step)
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [spinning])
+
+  const print = FILM_TYPE_PRINT[filmType]
+  const brandText = brand?.toUpperCase() ?? ''
+  // 條碼：20 條粗細不一的線，粗細由名稱的雜湊決定（裝飾用，不是真的條碼）
+  const barSeed = hashString(`${brand ?? ''}${name}`)
+  const bars: { x: number; width: number }[] = []
+  for (let i = 0, x = 0; i < 20; i++) {
+    const width = (barSeed >>> i) & 1 ? 1.7 : 0.8
+    bars.push({ x, width })
+    x += width + 0.9
+  }
+
+  /** 標籤攤平後的一份（長度 = 圓周）。畫兩份接在一起，轉到接縫時才不會露出空白。 */
+  function labelCopy(ox: number) {
+    const c = ox + FRONT_CENTER
+    return (
+      <g key={ox}>
+        {/* 正面：品牌、片名、ISO */}
+        {brandText && (
+          <text x={c} y={98} textAnchor="middle" fontSize={fitFontSize(brandText, 10.5, 92, 0.62, 3)} fontWeight={700} style={{ letterSpacing: 3 }} fill={palette.ink}>
+            {brandText}
+          </text>
+        )}
+        <text x={c} y={131} textAnchor="middle" fontSize={fitFontSize(name, 25, 96, 0.5)} fontWeight={800} style={{ fontStretch: '78%' }} fill={palette.ink}>
+          {name}
+        </text>
+        <text className={styles.mono} x={c} y={170} textAnchor="middle" fontSize={6.4} style={{ letterSpacing: 2.2 }} fill={palette.accentInk}>
+          ISO
+        </text>
+        <text x={c} y={203} textAnchor="middle" fontSize={37} fontWeight={800} style={{ fontStretch: '70%' }} fill={palette.accentInk}>
+          {iso}
+        </text>
+
+        {/* 背面：規格小字、條碼、DX 格子、直排品牌 */}
+        <text x={ox + 176} y={98} fontSize={17} fontWeight={800} style={{ fontStretch: '78%' }} fill={palette.ink}>
+          {format}
+        </text>
+        <text className={styles.mono} x={ox + 176} y={110} fontSize={6.2} fill={palette.ink}>
+          ISO {iso}/{dinDegrees(iso)}°
+        </text>
+        <text className={styles.mono} x={ox + 176} y={119} fontSize={4.6} style={{ letterSpacing: 0.4 }} fill={palette.ink}>
+          {print.line}
+        </text>
+        <text className={styles.mono} x={ox + 176} y={127} fontSize={4.6} style={{ letterSpacing: 0.4 }} fill={palette.ink}>
+          {print.process}
+        </text>
+        {bars.map((bar) => (
+          <rect key={bar.x} x={ox + 214 + bar.x} y={92} width={bar.width} height={30} fill={palette.ink} />
+        ))}
+        <rect x={ox + 213} y={185} width={44.4} height={15.6} fill="#151312" />
+        {[dx.row1, dx.row2].map((row, r) =>
+          Array.from({ length: 6 }, (_, col) => (
+            <rect
+              key={`${r}-${col}`}
+              x={ox + 214 + col * 7.2}
+              y={186 + r * 7.2}
+              width={6.6}
+              height={6.6}
+              fill={row[col] ? '#c9c4bb' : '#151312'}
+            />
+          )),
+        )}
+        {brandText && (
+          <text transform={`translate(${ox + 272} 198) rotate(-90)`} fontSize={11} fontWeight={800} style={{ fontStretch: '80%', letterSpacing: 1.2 }} fill={palette.ink}>
+            {brandText}
+          </text>
+        )}
+      </g>
+    )
+  }
+
+  const leaderPath = 'M142,74 L206,74 Q214,74 214,82 L214,130 Q214,138 206,138 L178,138 C169,138 171,206 160,206 L142,206 Z'
 
   return (
     <svg
       className={styles.canister}
-      viewBox="0 0 120 160"
+      viewBox="20 32 206 226"
       role="img"
-      aria-label={`${title} ${subtitle} 底片罐`}
+      aria-label={`${brand ? `${brand} ` : ''}${name} ISO ${iso} 底片罐`}
+      onPointerEnter={focused ? () => setHovering(true) : undefined}
+      onPointerLeave={focused ? () => setHovering(false) : undefined}
     >
-      {/* 片舌：從罐身右側拉出來的一小段底片 */}
-      <path className={styles.canisterLeader} d="M96 58 h18 a4 4 0 0 1 4 4 v36 a4 4 0 0 1 -4 4 h-18 z" />
-      {[66, 78, 90].map((y) => (
-        <rect key={y} className={styles.canisterSprocket} x="104" y={y} width="6" height="5" rx="1" />
+      <defs>
+        <g id={labelId} className={styles.label}>
+          <rect x={-10} y={40} width={2 * LABEL_LENGTH + 20} height={200} fill={palette.base} />
+          <rect x={-10} y={150} width={2 * LABEL_LENGTH + 20} height={90} fill={palette.accent} />
+          <rect x={-10} y={145.5} width={2 * LABEL_LENGTH + 20} height={1.2} fill={palette.ink} opacity={0.45} />
+          {labelCopy(0)}
+          {labelCopy(LABEL_LENGTH)}
+        </g>
+      </defs>
+
+      {/* 落影 */}
+      <ellipse className={styles.ground} cx={100} cy={236} rx={66} ry={10} filter="url(#canister-blur)" />
+
+      {/* 片頭：片基顏色依底片種類，齒孔是鏤空的（填背景色） */}
+      <path d={leaderPath} fill={print.base} />
+      <path d={leaderPath} fill="url(#canister-leader-sheen)" />
+      {[147, 165.3, 183.6, 201.9].map((x) => (
+        <rect key={x} className={styles.hole} x={x} y={81} width={7.6} height={10} rx={1.2} />
       ))}
+      <rect className={styles.hole} x={147} y={189} width={7.6} height={10} rx={1.2} />
 
-      {/* 上下金屬蓋與中間的軸心 */}
-      <rect className={styles.canisterMetal} x="22" y="6" width="76" height="14" rx="4" />
-      <rect className={styles.canisterMetal} x="50" y="0" width="20" height="8" rx="2" />
-      <rect className={styles.canisterMetal} x="22" y="140" width="76" height="14" rx="4" />
+      {/* 罐身：標籤直條 + 光影 + 顆粒 */}
+      <g clipPath="url(#canister-body)">
+        {STRIPS.map((_, i) => (
+          <g key={i} clipPath={`url(#canister-strip-${i})`}>
+            <use
+              ref={(el) => {
+                usesRef.current[i] = el
+              }}
+              href={`#${labelId}`}
+              transform={stripTransform(0, i)}
+            />
+          </g>
+        ))}
+        <rect x={38} y={56} width={104} height={180} fill="url(#canister-shade)" />
+        <path d="M40,70 A50,12 0 0 0 140,70 L140,90 A50,12 0 0 1 40,90 Z" fill="url(#canister-cap-shadow)" />
+        {focused && <rect x={38} y={56} width={104} height={180} filter="url(#canister-grain)" opacity={0.32} />}
+      </g>
 
-      {/* 罐身與標籤帶 */}
-      <rect x="18" y="18" width="84" height="124" rx="6" fill={bodyColor} />
-      <rect x="18" y="52" width="84" height="56" fill={labelColor} />
+      {/* 遮光絨：片頭出口 */}
+      <rect x={136} y={72} width={9} height={140} rx={1.5} fill="url(#canister-felt)" />
 
-      <text
-        className={styles.canisterTitle}
-        x="60"
-        y="78"
-        textAnchor="middle"
-        textLength={titleLength}
-        lengthAdjust={titleLength ? 'spacingAndGlyphs' : undefined}
-      >
-        {title}
-      </text>
-      <text
-        className={styles.canisterSubtitle}
-        x="60"
-        y="96"
-        textAnchor="middle"
-        textLength={subtitleLength}
-        lengthAdjust={subtitleLength ? 'spacingAndGlyphs' : undefined}
-      >
-        {subtitle}
-      </text>
+      {/* 底蓋 */}
+      <path d="M37,210 A53,12.8 0 0 0 143,210 L143,222 A53,12.8 0 0 1 37,222 Z" fill="url(#canister-metal-band)" />
+      <path className={styles.groove} d="M37,216 A53,12.8 0 0 0 143,216" />
+      <path className={styles.lip} d="M37,210 A53,12.8 0 0 0 143,210" />
+
+      {/* 頂蓋：側面一圈、橢圓頂面、壓邊、軸心 */}
+      <path d="M37,56 L37,70 A53,12.8 0 0 0 143,70 L143,56 Z" fill="url(#canister-metal-band)" />
+      <path className={styles.groove} d="M37,63 A53,12.8 0 0 0 143,63" />
+      <ellipse cx={90} cy={56} rx={53} ry={12.8} fill="url(#canister-metal-face)" />
+      <ellipse className={styles.rim} cx={90} cy={56} rx={52.3} ry={12.4} />
+      <ellipse className={styles.rimInner} cx={90} cy={56.6} rx={45.5} ry={10.8} />
+      <ellipse cx={91.5} cy={57} rx={13.5} ry={3.5} fill="#000" opacity={0.35} />
+      <path d="M79,44 A11,2.7 0 0 0 101,44 L101,56 A11,2.7 0 0 1 79,56 Z" fill="url(#canister-spool)" />
+      <ellipse cx={90} cy={44} rx={11} ry={2.7} fill="url(#canister-spool-top)" />
+      <ellipse cx={90} cy={44.2} rx={5.4} ry={1.35} fill="#0b0a09" />
+    </svg>
+  )
+}
+
+/**
+ * 所有底片罐共用的漸層、裁切區與濾鏡。App.tsx 在最外層 render 一次。
+ *
+ * 放在一個寬高 0 的 SVG 裡，而不是 `display: none`：有些瀏覽器不會套用藏在 display: none 裡的漸層與裁切。
+ * id 全部以 `canister-` 開頭，避免和別的 SVG 撞名。
+ */
+export function CanisterDefs() {
+  return (
+    <svg width={0} height={0} style={{ position: 'absolute' }} aria-hidden="true" focusable="false">
+      <defs>
+        <clipPath id="canister-body">
+          <path d="M40,64 L40,218 A50,12 0 0 0 140,218 L140,64 Z" />
+        </clipPath>
+        {STRIPS.map((s, i) => (
+          <clipPath key={i} id={`canister-strip-${i}`}>
+            {/* 左右各多 0.3，相鄰直條重疊一點，避免接縫露出細線 */}
+            <rect x={s.sx0 - 0.3} y={30} width={s.sx1 - s.sx0 + 0.6} height={220} />
+          </clipPath>
+        ))}
+
+        {/* 圓柱的明暗：兩側暗、偏左一條亮帶，中間偏右慢慢暗下去 */}
+        <linearGradient id="canister-shade" gradientUnits="userSpaceOnUse" x1={40} y1={0} x2={140} y2={0}>
+          <stop offset="0" stopColor="#000" stopOpacity={0.66} />
+          <stop offset="0.08" stopColor="#000" stopOpacity={0.36} />
+          <stop offset="0.2" stopColor="#000" stopOpacity={0.08} />
+          <stop offset="0.29" stopColor="#fff" stopOpacity={0.2} />
+          <stop offset="0.33" stopColor="#fff" stopOpacity={0.38} />
+          <stop offset="0.38" stopColor="#fff" stopOpacity={0.1} />
+          <stop offset="0.58" stopColor="#000" stopOpacity={0} />
+          <stop offset="0.8" stopColor="#000" stopOpacity={0.2} />
+          <stop offset="0.93" stopColor="#000" stopOpacity={0.45} />
+          <stop offset="1" stopColor="#000" stopOpacity={0.64} />
+        </linearGradient>
+        {/* 頂蓋在標籤上投下的影子 */}
+        <linearGradient id="canister-cap-shadow" x1={0} y1={0} x2={0} y2={1}>
+          <stop offset="0" stopColor="#000" stopOpacity={0.55} />
+          <stop offset="0.5" stopColor="#000" stopOpacity={0.16} />
+          <stop offset="1" stopColor="#000" stopOpacity={0} />
+        </linearGradient>
+
+        {/* 銀色金屬蓋：側面、頂面、軸心 */}
+        <linearGradient id="canister-metal-band" gradientUnits="userSpaceOnUse" x1={37} y1={0} x2={143} y2={0}>
+          <stop offset="0" stopColor="#4f4b47" />
+          <stop offset="0.1" stopColor="#8b857d" />
+          <stop offset="0.27" stopColor="#f2efe9" />
+          <stop offset="0.33" stopColor="#d8d3cb" />
+          <stop offset="0.55" stopColor="#a39d94" />
+          <stop offset="0.8" stopColor="#6e6862" />
+          <stop offset="1" stopColor="#3c3834" />
+        </linearGradient>
+        <linearGradient id="canister-metal-face" gradientUnits="userSpaceOnUse" x1={50} y1={44} x2={130} y2={70}>
+          <stop offset="0" stopColor="#f3f0ea" />
+          <stop offset="0.55" stopColor="#c2bcb3" />
+          <stop offset="1" stopColor="#8f8981" />
+        </linearGradient>
+        <linearGradient id="canister-spool" gradientUnits="userSpaceOnUse" x1={79} y1={0} x2={101} y2={0}>
+          <stop offset="0" stopColor="#6d6760" />
+          <stop offset="0.3" stopColor="#ebe7e1" />
+          <stop offset="0.6" stopColor="#9b958d" />
+          <stop offset="1" stopColor="#57524c" />
+        </linearGradient>
+        <linearGradient id="canister-spool-top" x1={0} y1={0} x2={1} y2={1}>
+          <stop offset="0" stopColor="#e2ddd6" />
+          <stop offset="1" stopColor="#a39d95" />
+        </linearGradient>
+
+        {/* 片頭的光澤與遮光絨 */}
+        <linearGradient id="canister-leader-sheen" gradientUnits="userSpaceOnUse" x1={0} y1={74} x2={0} y2={206}>
+          <stop offset="0" stopColor="#fff" stopOpacity={0} />
+          <stop offset="0.16" stopColor="#fff" stopOpacity={0.3} />
+          <stop offset="0.3" stopColor="#fff" stopOpacity={0} />
+          <stop offset="0.75" stopColor="#000" stopOpacity={0.12} />
+          <stop offset="1" stopColor="#000" stopOpacity={0.32} />
+        </linearGradient>
+        <linearGradient id="canister-felt" gradientUnits="userSpaceOnUse" x1={136} y1={0} x2={145} y2={0}>
+          <stop offset="0" stopColor="#0b0908" />
+          <stop offset="0.45" stopColor="#2b2421" />
+          <stop offset="0.75" stopColor="#16110f" />
+          <stop offset="1" stopColor="#060505" />
+        </linearGradient>
+
+        <filter id="canister-blur" x="-30%" y="-120%" width="160%" height="340%">
+          <feGaussianBlur stdDeviation={5} />
+        </filter>
+        {/* 顆粒：雜訊只留暗點，透明度由 R 通道決定 */}
+        <filter id="canister-grain" x="0" y="0" width="100%" height="100%">
+          <feTurbulence type="fractalNoise" baseFrequency={0.9} numOctaves={2} seed={7} stitchTiles="stitch" />
+          <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  1.3 0 0 0 -0.5" />
+        </filter>
+      </defs>
     </svg>
   )
 }

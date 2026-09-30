@@ -9,13 +9,12 @@
   flex-direction: column;
 }
 
+/* 導覽列不畫底線也不加底色：和內容之間靠間距區隔，畫面比較乾淨 */
 .header {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
-  background-color: var(--color-surface);
 }
 
 .brand {
@@ -54,6 +53,7 @@
 .navLinkActive {
   color: var(--color-text);
   text-decoration: underline;
+  text-decoration-color: var(--color-accent);
   text-underline-offset: 0.4em;
 }
 

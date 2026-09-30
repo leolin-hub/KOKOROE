@@ -87,7 +87,7 @@ export default function CrateItem({ roll, offset, linkState }: CrateItemProps) {
           tabIndex={offset === 0 ? undefined : -1}
           aria-label={`${title} 詳情`}
         >
-          <RollArtwork roll={roll} />
+          <RollArtwork roll={roll} focused={offset === 0} />
         </Link>
         <div className={styles.info}>
           <h2 className={styles.title}>{title}</h2>

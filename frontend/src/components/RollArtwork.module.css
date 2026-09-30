@@ -1,52 +1,56 @@
 /*
- * 底片捲外觀：照片或 SVG 底片罐。
- * 外框固定成直式 3:4，照片與 SVG 都塞進同一個框，唱片櫃排起來才整齊。
+ * 底片罐外觀。SVG 的 viewBox 已經包含片頭與落影，寬度交給外層，高度依比例自動算。
  */
 
 .artwork {
-  display: flex;
-  align-items: center;
-  justify-content: center;
   width: 100%;
-  aspect-ratio: 3 / 4;
-  overflow: hidden;
-}
-
-/* 照片：完整顯示不裁切（contain），店家圖的留白比例不一，裁切容易切到品牌字。 */
-.photo {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
 }
 
 .canister {
-  width: 78%;
+  display: block;
+  width: 100%;
   height: auto;
-  /* 很淡的落影，只是讓罐子「放在」背景上，不是浮起來的卡片陰影 */
-  filter: drop-shadow(0 6px 10px rgb(0 0 0 / 0.35));
 }
 
-.canisterMetal {
-  fill: #b9b1a6;
+/* 標籤上的字：窄體粗字用 Archivo，小字與數字用等寬字（main.tsx 載入字型） */
+.label text {
+  font-family: var(--font-canister);
 }
 
-.canisterLeader {
-  fill: #2a2420;
+.label .mono {
+  font-family: var(--font-mono);
 }
 
-.canisterSprocket {
+/* 齒孔是鏤空的：填背景色，看起來就像能透過孔看到後面 */
+.hole {
   fill: var(--color-bg);
 }
 
-.canisterTitle {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  fill: #1b1714;
+.ground {
+  fill: rgb(0 0 0 / 0.8);
 }
 
-.canisterSubtitle {
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  fill: #1b1714;
+/* 金屬蓋的壓邊溝紋、邊緣反光 */
+.groove {
+  fill: none;
+  stroke: rgb(0 0 0 / 0.45);
+  stroke-width: 0.7;
+}
+
+.lip {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.28);
+  stroke-width: 0.6;
+}
+
+.rim {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.35);
+  stroke-width: 0.6;
+}
+
+.rimInner {
+  fill: none;
+  stroke: rgb(0 0 0 / 0.4);
+  stroke-width: 0.8;
 }

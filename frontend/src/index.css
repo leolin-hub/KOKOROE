@@ -9,22 +9,38 @@
  */
 
 :root {
-  /* 色彩 —— 底片主題，暖調的深色底 */
-  --color-bg: #14110f;
-  --color-surface: #1e1a17;
-  --color-surface-hover: #27221e;
-  --color-border: #3a332d;
-  --color-text: #f0ebe5;
-  --color-text-muted: #a09689;
-  --color-accent: #d97757;
-  --color-accent-hover: #e0886b;
-  --color-danger: #d95757;
+  /*
+   * 色彩 —— 暗房展示：帶一點冷調的炭黑。
+   * 背景刻意偏冷、不偏暖：唱片櫃的底片罐幾乎都是暖色（片頭橘棕、金黃標籤），
+   * 冷一點的底才襯得出它們，銀色蓋的高光也才不會被映成米色。
+   * 顏色交給底片，介面保持中性。
+   */
+  --color-bg: #141517;
+  --color-surface: #1e2024;
+  --color-surface-hover: #26292e;
+  --color-border: #2e3136;
+  --color-text: #f3efea;
+  --color-text-muted: #9a968f;
+  /*
+   * 重點色用琥珀，刻意比片頭的橘棕（#b4652e）更亮、更偏金，按鈕和選中狀態才不會跟罐子搶。
+   * 它夠亮，所以放在重點色上的字要用深色（各按鈕用 --color-bg）。
+   */
+  --color-accent: #e0a96d;
+  --color-accent-hover: #ebbf8c;
+  --color-danger: #e5534b;
 
-  /* 狀態色 —— 對應 FilmRollStatus 的四個值 */
-  --color-status-loaded: #6b9bd1;
-  --color-status-shooting: #d9b757;
-  --color-status-developing: #b57bd9;
-  --color-status-archived: #7d8f7d;
+  /*
+   * 狀態色 —— 對應 FilmRollStatus 的四個值，避開重點色與片頭的色相。
+   * 沖洗中用暗房安全燈的紅；已歸檔是「結束了」，用最安靜的灰。
+   */
+  --color-status-loaded: #7fa3c8;
+  --color-status-shooting: #9cc08a;
+  --color-status-developing: #d4695f;
+  --color-status-archived: #8e918f;
+
+  /* 底片罐標籤的字型（main.tsx 載入）。只用在 SVG 底片罐上，介面文字仍用系統字型 */
+  --font-canister: 'Archivo Variable', 'Arial Narrow', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
   /* 間距，8px 為基準 */
   --space-1: 0.25rem;

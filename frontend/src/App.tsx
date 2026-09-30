@@ -8,6 +8,7 @@ import CameraListPage from './pages/CameraListPage'
 import CameraCreatePage from './pages/CameraCreatePage'
 import CameraEditPage from './pages/CameraEditPage'
 import NotFoundPage from './pages/NotFoundPage'
+import { CanisterDefs } from './components/FilmCanisterSvg'
 import styles from './App.module.css'
 
 /**
@@ -39,6 +40,8 @@ import styles from './App.module.css'
 export default function App() {
   return (
     <div className={styles.app}>
+      {/* 所有底片罐共用的漸層與裁切區，整個 app 只放一份 */}
+      <CanisterDefs />
       <header className={styles.header}>
         <Link to="/film-rolls" className={styles.brand}>
           kokoroe

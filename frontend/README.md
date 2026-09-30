@@ -208,6 +208,32 @@ canisterColors('Kodak Portra 400')                 // 同一個字串每次都�
 
 資料只有 15 卷、一頁 20 卷，**看不到自動載入**。測試時可以暫時把 `useInfiniteFilmRolls` 裡的 `size` 改成 5。
 
+### 第 6 階段：唱片櫃視覺改版（`feat/frontend-crate-redesign`）
+
+每一卷改畫成寫實的 SVG 底片罐（略俯視、銀色蓋、片頭、顆粒），唱片櫃不再用照片；
+整站配色換成冷調炭黑（`index.css`），唱片櫃與導覽列拿掉分隔線，每一卷也拿掉外框。
+
+**已經寫好的**：
+- `components/FilmCanisterSvg.tsx`：底片罐本體與共用的 `CanisterDefs`（App.tsx 放一份）。
+  標籤切成 28 條直條包到圓柱上、光影漸層、焦點卷期滑鼠移上去會轉。檔案開頭有畫法說明
+- `components/RollArtwork.tsx`：準備底片罐的資料，每一項交給下面的 lib 函式
+- `lib/filmStockKey.ts`：原本的 `filmStockImage.ts` 拿掉照片對照表，留下 `toFilmStockKey`，加上 `labelFilmName`
+- 字型：`@fontsource-variable/archivo`、`@fontsource/ibm-plex-mono`（打包進專案，不連 Google Fonts）
+
+| # | 檔案 | 重點 | 寫完怎麼確認 |
+|---|---|---|---|
+| 28 | `lib/canisterColors.ts` 的 `canisterPalette` | 三層查詢：款式 → 品牌 → 雜湊；不分大小寫 | `/crate` 的 Portra、Gold 變成各自的顏色 |
+| 29 | `lib/filmType.ts` 的 `guessFilmType` | 規則的順序、`includes` 的誤判 | Tri-X 的片頭變灰黑色、背面印 `BLACK & WHITE FILM` |
+| 30 | `lib/dxCode.ts` 的 `dxCode` | 查表抄 DX 位元、找最接近的 ISO、字串轉 boolean 陣列 | 焦點卷期滑鼠移上去轉到背面，看 DX 格子 |
+
+三支都還沒寫時罐子一樣畫得出來：配色都是同一組、片頭都是彩色負片、DX 格子全黑。
+`lib/` 的函式一樣可以在瀏覽器 console 直接驗證：
+
+```js
+const { canisterPalette } = await import('/src/lib/canisterColors.ts')
+canisterPalette('kodak', 'portra', 400)            // 和 STOCK_PALETTES.KodakPortra400 同一組
+```
+
 ---
 
 ## 幾個一定會遇到的坑
