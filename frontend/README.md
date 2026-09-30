@@ -168,13 +168,17 @@ curl -X POST http://localhost:8080/api/v1/film-rolls \
 
 垂直捲動、每次停在一卷正中央，焦點卷期放大、其他往後傾，捲到底自動載入下一批。路由是 `/crate`。
 
+**✅ 已完成**：#21–27 都已實作。review 時另外加了 `lib/backLink.ts`：
+從唱片櫃點進詳情頁時，返回連結是「← 回到唱片櫃」並帶回原本的篩選，經過編輯、刪除也保留。
+
 **已經寫好的**（不用動，但值得讀一遍）：
 - `lib/listParams.ts`：`parseStatus` / `parseSort`，從列表頁抽出來共用
 - `hooks/queryKeys.ts` 的 `filmRollKeys.infinite`：為什麼放在 `lists()` 底下
 - `components/FilmCanisterSvg.tsx`：沒有照片時的 SVG 底片罐
 - 三支 `.module.css`：傾斜、縮放、scroll-snap、`prefers-reduced-motion` 都在 CSS 裡
 - `App.tsx` 的路由與導覽列「唱片櫃」
-- `public/film-stocks/`：底片捲照片放這裡，並在 `lib/filmStockImage.ts` 的對照表加一行
+- `public/film-stocks/`：底片捲照片放這裡，並在 `lib/filmStockImage.ts` 的對照表加一行。
+  照片**不放進 repo**：多半是廠商的商品照，而 repo 是公開的。clone 下來沒有照片時，每一卷會在圖片 404 後退回 SVG 底片罐
 
 **這次的 TODO 檔沒有預先 import。** `noUnusedLocals` 已經開啟，先 import 卻沒用到的東西會讓 build 失敗。
 每支的【會用到】都標了「要自己 import」和來源路徑。函式裡的 `void xxx` 與佔位回傳值是讓骨架通過型別檢查用的，開始寫時刪掉。
