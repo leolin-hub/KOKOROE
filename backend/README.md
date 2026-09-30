@@ -203,7 +203,7 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 | 後端 `FilmRoll` CRUD（本文件描述的範圍） | ✅ 完成 |
 | CI：GitHub Actions（後端 `mvnw test`；前端 lint、型別檢查、build）與 Dependabot | ✅ 完成 |
 | 前端垂直切片（Vite + React + TS + TanStack Query） | 🚧 進行中，見下方 |
-| 唱片櫃式卷期瀏覽（垂直捲動、當前卷期放大、無限捲動） | ⏳ 未開始 |
+| 唱片櫃式卷期瀏覽（垂直捲動、當前卷期放大、無限捲動） | ✅ 完成（`/crate`；視覺改版規劃中） |
 | 拆出 `Camera` 實體（`/api/v1/cameras`），V2 migration 把舊的 `camera_name` 去重搬進 `camera` 並回填 | ✅ 完成（前端表單改為相機下拉選單；V3 移除舊欄位 `camera_name`，沒連上相機的舊名稱補進備註） |
 | 相機管理頁（`/cameras` 列表、新增、編輯與刪除） | ✅ 完成 |
 | 拆出 `Lens` 實體 | ⏳ 未開始 |
@@ -234,3 +234,11 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 - ✅ 卷期表單的相機改為下拉選單（`useCameras`，裝不了目前底片規格的相機設為 disabled）
 - ✅ 相機管理頁：列表（規格摘要）、新增、編輯（含刪除，使用中回 409 顯示原因）；上方導覽列加入「卷期／相機」
 - ✅ 表單共用元件抽出：`FormField`、`Form.module.css`、`FormPage.module.css`
+
+**唱片櫃**（`feat/frontend-crate-browser`）
+
+- ✅ `/crate`：scroll-snap 垂直捲動，焦點卷期放大、其他依距離往後傾；計數「第 N / 總數 卷」
+- ✅ `useInfiniteFilmRolls`：捲到倒數第 3 卷自動載入下一批；篩選與排序沿用列表頁的 URL 參數（`lib/listParams.ts`）
+- ✅ 鍵盤操作（↑ ↓ Home End Enter）、非焦點卷期的連結不進 Tab 順序、`prefers-reduced-motion`（`usePrefersReducedMotion`）
+- ✅ `RollArtwork`：有對照表的底片顯示照片，否則畫 SVG 底片罐（`FilmCanisterSvg`、`canisterColors`）
+- ✅ 從唱片櫃進詳情頁時，「← 回到唱片櫃」帶回原本的篩選（`lib/backLink.ts`，經過編輯、刪除也保留）

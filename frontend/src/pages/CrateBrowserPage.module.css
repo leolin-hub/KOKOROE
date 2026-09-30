@@ -1,0 +1,103 @@
+/*
+ * 唱片櫃瀏覽頁。
+ *
+ * 版面：上方工具列（標題、第幾卷、篩選）＋ 下方一個固定高度、可垂直捲動的「櫃子」。
+ * 櫃子用 scroll-snap 讓每次捲動都停在某一卷的正中央。
+ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* 櫃子與一格的高度。CrateItem、清單留白與「計算目前第幾格」都依賴它們，改這裡就好 */
+  --crate-viewport-height: min(70vh, 40rem);
+  --crate-slot-height: 15rem;
+}
+
+.toolbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+/* 「第 3 / 15 卷」：等寬數字，捲動時數字變化不會讓整行左右跳 */
+.counter {
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-muted);
+}
+
+.viewport {
+  position: relative;
+  height: var(--crate-viewport-height);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: y mandatory;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  background-color: var(--color-bg);
+  /* 隱藏捲軸，捲動靠滑鼠滾輪、觸控與鍵盤；焦點外框仍在 :focus-visible 顯示 */
+  scrollbar-width: none;
+}
+
+.viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.viewport:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/*
+ * 卷期清單。上下各留「半個櫃子高減半格」的空白，
+ * 第一卷與最後一卷才能捲到正中央；也因為這段空白，scrollTop 為 0 時剛好是第 0 格置中。
+ */
+.list {
+  margin: 0;
+  padding: calc((var(--crate-viewport-height) - var(--crate-slot-height)) / 2) var(--space-4);
+  list-style: none;
+}
+
+/* 載入下一批時，清單最下方的小字 */
+.loadingMore {
+  padding: var(--space-4) 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.message {
+  margin: 0;
+  padding: var(--space-8) 0;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.link {
+  color: var(--color-text-link);
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewport {
+    scroll-behavior: auto;
+  }
+}

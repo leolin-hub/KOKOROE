@@ -5,29 +5,20 @@ import FilmRollCard from '../components/FilmRollCard'
 import FilmRollFilters from '../components/FilmRollFilters'
 import Pagination from '../components/Pagination'
 import ErrorBanner from '../components/ErrorBanner'
-import { DEFAULT_PAGE_SIZE, SORT_OPTIONS, STATUS_LABELS, STATUS_ORDER } from '../lib/constants'
+import { DEFAULT_PAGE_SIZE, STATUS_LABELS } from '../lib/constants'
+import { DEFAULT_SORT, parseSort, parseStatus } from '../lib/listParams'
 import type { FilmRollListParams, FilmRollStatus } from '../types/filmRoll'
 import styles from './FilmRollListPage.module.css'
 
-const DEFAULT_SORT = 'loadedAt,desc'
-
 /*
  * URL 是使用者可以亂打的外部輸入，讀進來一律先驗證，不合法就退回預設值。
- * 否則 `?status=BANANA`、`?page=abc` 會原封不動送到後端，換來一個 400。
+ * status 與 sort 的解析和唱片櫃瀏覽頁共用，在 lib/listParams.ts；頁碼只有這一頁用得到，留在這裡。
  */
-
-function parseStatus(raw: string | null): FilmRollStatus | undefined {
-  return STATUS_ORDER.includes(raw as FilmRollStatus) ? (raw as FilmRollStatus) : undefined
-}
 
 /** `Number(null)` 是 0（剛好對），但 `Number('abc')` 是 NaN，負數與小數也要擋。 */
 function parsePage(raw: string | null): number {
   const page = Number(raw)
   return Number.isInteger(page) && page >= 0 ? page : 0
-}
-
-function parseSort(raw: string | null): string {
-  return SORT_OPTIONS.some((o) => o.value === raw) ? (raw as string) : DEFAULT_SORT
 }
 
 /**

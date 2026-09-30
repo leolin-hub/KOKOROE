@@ -164,6 +164,50 @@ curl -X POST http://localhost:8080/api/v1/film-rolls \
 - [x] 刪掉各頁面裡的 `.placeholder` 區塊與對應 CSS
 - [x] `npm run build` 與 `npm run lint` 都要綠
 
+### 第 5 階段：唱片櫃瀏覽頁（選項 B，`feat/frontend-crate-browser`）
+
+垂直捲動、每次停在一卷正中央，焦點卷期放大、其他往後傾，捲到底自動載入下一批。路由是 `/crate`。
+
+**✅ 已完成**：#21–27 都已實作。review 時另外加了 `lib/backLink.ts`：
+從唱片櫃點進詳情頁時，返回連結是「← 回到唱片櫃」並帶回原本的篩選，經過編輯、刪除也保留。
+
+**已經寫好的**（不用動，但值得讀一遍）：
+- `lib/listParams.ts`：`parseStatus` / `parseSort`，從列表頁抽出來共用
+- `hooks/queryKeys.ts` 的 `filmRollKeys.infinite`：為什麼放在 `lists()` 底下
+- `components/FilmCanisterSvg.tsx`：沒有照片時的 SVG 底片罐
+- 三支 `.module.css`：傾斜、縮放、scroll-snap、`prefers-reduced-motion` 都在 CSS 裡
+- `App.tsx` 的路由與導覽列「唱片櫃」
+- `public/film-stocks/`：底片捲照片放這裡，並在 `lib/filmStockImage.ts` 的對照表加一行。
+  照片**不放進 repo**：多半是廠商的商品照，而 repo 是公開的。clone 下來沒有照片時，每一卷會在圖片 404 後退回 SVG 底片罐
+
+**這次的 TODO 檔沒有預先 import。** `noUnusedLocals` 已經開啟，先 import 卻沒用到的東西會讓 build 失敗。
+每支的【會用到】都標了「要自己 import」和來源路徑。函式裡的 `void xxx` 與佔位回傳值是讓骨架通過型別檢查用的，開始寫時刪掉。
+
+| # | 檔案 | 重點 | 寫完怎麼確認 |
+|---|---|---|---|
+| 21 | `lib/filmStockImage.ts` | 暖身：`\p{L}` 切字、大駝峰、不分大小寫查表 | console 驗證（見下方） |
+| 22 | `lib/canisterColors.ts` | `Math.imul` 與 `>>> 0`；只讓色相變化 | console 驗證 |
+| 23 | `components/RollArtwork.tsx` | 照片或 SVG；`onError` 退回 SVG | 23～26 寫完，在 `/crate` 一起看 |
+| 24 | `hooks/useInfiniteFilmRolls.ts` | `getNextPageParam`、`initialPageParam` | React Query Devtools 看 `pages` |
+| 25 | `hooks/usePrefersReducedMotion.ts` | `useSyncExternalStore` | DevTools 模擬 reduced motion |
+| 26 | `components/CrateItem.tsx` | CSS 變數的型別轉換、非焦點卷期的 `tabIndex` | 在 `/crate` 看 |
+| 27 | `pages/CrateBrowserPage.tsx` | **最大的一支。** 捲動算焦點、鍵盤、自動載入、換篩選要歸零 | 在 `/crate` 捲動、按方向鍵、換篩選 |
+
+`lib/` 的兩支不用 render 任何東西，dev server 開著時直接在瀏覽器 console 驗證：
+
+```js
+const { toFilmStockKey } = await import('/src/lib/filmStockImage.ts')
+toFilmStockKey('Fujifilm', 'Superia X-TRA 400')   // 'FujifilmSuperiaXTRA400'
+
+const { canisterColors } = await import('/src/lib/canisterColors.ts')
+canisterColors('Kodak Portra 400')                 // 同一個字串每次都一樣
+```
+
+**建議先把第 27 支的「A. 資料」「F. 畫面」寫出來**，確認卷期排得出來，
+再加 B（焦點）、C（鍵盤）、D（自動載入）、E（換篩選）。一次全寫完再測，出錯時很難判斷是哪一段。
+
+資料只有 15 卷、一頁 20 卷，**看不到自動載入**。測試時可以暫時把 `useInfiniteFilmRolls` 裡的 `size` 改成 5。
+
 ---
 
 ## 幾個一定會遇到的坑

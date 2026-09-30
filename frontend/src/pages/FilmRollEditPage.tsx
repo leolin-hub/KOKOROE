@@ -1,10 +1,11 @@
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { useFilmRoll } from '../hooks/useFilmRoll'
 import { useUpdateFilmRoll } from '../hooks/useFilmRollMutations'
 import FilmRollForm from '../components/FilmRollForm'
 import ErrorBanner from '../components/ErrorBanner'
 import { ApiError, toFieldErrors } from '../api/problem'
 import { toUpdateRequest } from '../lib/toUpdateRequest'
+import { readBackLink } from '../lib/backLink'
 import type { UpdateFilmRollRequest } from '../types/filmRoll'
 import styles from './FormPage.module.css'
 
@@ -20,31 +21,35 @@ import styles from './FormPage.module.css'
  * - 網址的 id 不合法要在 isPending 之前處理：id 不合法時 useFilmRoll 不發請求，isPending 會永遠是 true。
  * - `minStatus={roll.status}` 讓狀態下拉只列出目前及之後的狀態。
  *   409 仍然可能出現（例如另一個分頁已經把這卷推進到已歸檔），所以錯誤處理不能省，交給 ErrorBanner 顯示後端訊息。
+ * - 回詳情頁的連結與儲存後的跳頁都把 `location.state` 原樣傳回去：
+ *   從唱片櫃進來的話，回到詳情頁後「← 回到唱片櫃」才不會變回「← 回到列表」（見 `lib/backLink.ts`）。
  */
 export default function FilmRollEditPage() {
   const { id } = useParams<{ id: string }>()
   const rollId = Number(id)
   const navigate = useNavigate()
+  const location = useLocation()
+  const back = readBackLink(location.state)
   const { data: roll, isPending, isError, error, refetch } = useFilmRoll(rollId)
   const updateMutation = useUpdateFilmRoll()
 
   function handleSubmit(values: UpdateFilmRollRequest) {
     updateMutation.mutate(
       { id: rollId, body: values },
-      { onSuccess: () => navigate(`/film-rolls/${rollId}`) },
+      { onSuccess: () => navigate(`/film-rolls/${rollId}`, { state: location.state }) },
     )
   }
 
-  const listLink = (
-    <Link to="/film-rolls" className={styles.back}>
-      ← 回到列表
+  const backLink = (
+    <Link to={back.to} className={styles.back}>
+      ← {back.label}
     </Link>
   )
 
   if (!Number.isInteger(rollId) || rollId <= 0) {
     return (
       <div className={styles.page}>
-        {listLink}
+        {backLink}
         <p className={styles.message}>網址不正確，找不到這卷底片。</p>
       </div>
     )
@@ -53,7 +58,7 @@ export default function FilmRollEditPage() {
   if (isPending) {
     return (
       <div className={styles.page}>
-        {listLink}
+        {backLink}
         <p className={styles.message}>載入中…</p>
       </div>
     )
@@ -62,7 +67,7 @@ export default function FilmRollEditPage() {
   if (isError) {
     return (
       <div className={styles.page}>
-        {listLink}
+        {backLink}
         {error instanceof ApiError && error.status === 404 ? (
           <p className={styles.message}>這卷不存在，可能已被刪除。</p>
         ) : (
@@ -78,7 +83,7 @@ export default function FilmRollEditPage() {
 
   return (
     <div className={styles.page}>
-      <Link to={`/film-rolls/${rollId}`} className={styles.back}>
+      <Link to={`/film-rolls/${rollId}`} state={location.state} className={styles.back}>
         ← 回到卷期
       </Link>
       <h1 className={styles.title}>編輯卷期</h1>
