@@ -218,6 +218,10 @@ hashString('Kodak Portra 400')                     // 同一個字串每次都�
 整站配色換成冷調炭黑（`index.css`），唱片櫃與導覽列拿掉分隔線，每一卷也拿掉外框。
 頁面改名為「底片盒」（路由與程式裡的名稱仍是 `/crate`、`CrateBrowserPage`），導覽列拿掉標語。
 
+> 之後（`feat/frontend-rolls-view-toggle`）「卷期」與「底片盒」合併成同一頁的兩種檢視：
+> `pages/FilmRollsPage.tsx` 負責共用的標題列與 [清單 | 底片盒] 切換（`components/ViewToggle.tsx`），
+> 底片盒的網址變成 `/film-rolls?view=crate`，舊的 `/crate` 會導過去並保留篩選。導覽列只剩「卷期 / 相機」。
+
 **✅ 已完成**：#28–30 都已實作。`guessFilmType` 在 review 後改成比對整個字（`pan` 不再誤中 Japan、Panorama）；
 `dxCode` 的位元表已對照 Wikipedia 原始碼逐格確認。
 

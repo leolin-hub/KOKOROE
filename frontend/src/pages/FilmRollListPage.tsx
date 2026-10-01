@@ -22,7 +22,7 @@ function parsePage(raw: string | null): number {
 }
 
 /**
- * 卷期列表頁。
+ * 卷期頁的「清單」檢視（`/film-rolls`）。標題列與檢視切換在外層的 `FilmRollsPage`。
  *
  * 篩選、排序、分頁狀態都放在 URL（`useSearchParams`），不放 useState：
  * 網址可以分享、加書籤，重新整理與瀏覽器上一頁都會如預期運作。
@@ -113,13 +113,7 @@ export default function FilmRollListPage() {
 
   return (
     <div className={styles.page}>
-      <div className={styles.toolbar}>
-        <h1 className={styles.title}>我的卷期</h1>
-        <Link to="/film-rolls/new" className={styles.newButton}>
-          裝新的一卷
-        </Link>
-      </div>
-
+      {/* 標題與「裝新的一卷」在外層的 FilmRollsPage，和底片盒檢視共用 */}
       <FilmRollFilters
         status={status}
         sort={sort}

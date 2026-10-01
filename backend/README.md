@@ -249,3 +249,8 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 - ✅ 標籤資料：三層配色（款式 → 品牌 → 雜湊，`canisterPalette`）、從片名推測彩色／黑白／正片（`guessFilmType`）、依 Wikipedia 表的 DX 編碼（`dxCode`）
 - ✅ 整站配色換成冷調炭黑；導覽列、底片盒拿掉分隔線，表單欄位框線與狀態色調到符合 WCAG 對比
 - ✅ 字型 Archivo、IBM Plex Mono 以 fontsource 打包進專案
+
+**卷期頁合併兩種檢視**（`feat/frontend-rolls-view-toggle`）
+
+- ✅ 「卷期」與「底片盒」看的是同一批卷期，合併成一頁：右上角 [清單 | 底片盒] 切換，篩選與排序跟著保留
+- ✅ 底片盒網址改為 `/film-rolls?view=crate`；舊的 `/crate` 導過去並保留篩選，詳情頁「← 回到底片盒」也跟著改
