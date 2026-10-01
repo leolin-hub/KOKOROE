@@ -9,22 +9,46 @@
  */
 
 :root {
-  /* 色彩 —— 底片主題，暖調的深色底 */
-  --color-bg: #14110f;
-  --color-surface: #1e1a17;
-  --color-surface-hover: #27221e;
-  --color-border: #3a332d;
-  --color-text: #f0ebe5;
-  --color-text-muted: #a09689;
-  --color-accent: #d97757;
-  --color-accent-hover: #e0886b;
-  --color-danger: #d95757;
+  /*
+   * 色彩 —— 暗房展示：帶一點冷調的炭黑。
+   * 背景刻意偏冷、不偏暖：唱片櫃的底片罐幾乎都是暖色（片頭橘棕、金黃標籤），
+   * 冷一點的底才襯得出它們，銀色蓋的高光也才不會被映成米色。
+   * 顏色交給底片，介面保持中性。
+   */
+  --color-bg: #141517;
+  --color-surface: #1e2024;
+  --color-surface-hover: #26292e;
+  /* 裝飾用的分隔線，刻意很淡 */
+  --color-border: #2e3136;
+  /*
+   * 表單欄位的框線。欄位要「看得出是可以填的格子」，WCAG 要求非文字元素至少 3:1，
+   * 淡的 --color-border 只有 1.4:1，欄位看起來像淺淺的凹痕。
+   */
+  --color-border-strong: #6b6f76;
+  --color-text: #f3efea;
+  --color-text-muted: #9a968f;
+  /*
+   * 重點色用琥珀，刻意比片頭的橘棕（#b4652e）更亮、更偏金，按鈕和選中狀態才不會跟罐子搶。
+   * 它夠亮，所以放在重點色上的字要用深色（各按鈕用 --color-bg）。
+   */
+  --color-accent: #e0a96d;
+  --color-accent-hover: #ebbf8c;
+  /* 錯誤與刪除。亮度拉到放在淡紅底（刪除鈕 hover）上也有 4.5:1 */
+  --color-danger: #f07870;
 
-  /* 狀態色 —— 對應 FilmRollStatus 的四個值 */
-  --color-status-loaded: #6b9bd1;
-  --color-status-shooting: #d9b757;
-  --color-status-developing: #b57bd9;
-  --color-status-archived: #7d8f7d;
+  /*
+   * 狀態色 —— 對應 FilmRollStatus 的四個值，避開重點色與片頭的色相。
+   * 沖洗中用暗房安全燈的紅；已歸檔是「結束了」，用最安靜的灰。
+   * 標籤是 12px 的小字、底色是自己的 15% 淡色，四個顏色在卡片上都至少 4.5:1。
+   */
+  --color-status-loaded: #7fa3c8;
+  --color-status-shooting: #9cc08a;
+  --color-status-developing: #e8857b;
+  --color-status-archived: #a0a3a1;
+
+  /* 底片罐標籤的字型（main.tsx 載入）。只用在 SVG 底片罐上，介面文字仍用系統字型 */
+  --font-canister: 'Archivo Variable', 'Arial Narrow', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 
   /* 間距，8px 為基準 */
   --space-1: 0.25rem;
@@ -88,7 +112,7 @@ textarea {
   font: inherit;
   color: inherit;
   background-color: var(--color-bg);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
 }

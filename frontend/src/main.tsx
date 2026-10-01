@@ -4,6 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { BrowserRouter } from 'react-router'
 import App from './App'
+// 底片罐標籤用的字型。打包進專案而不是連 Google Fonts：不多一個第三方請求，離線也能顯示。
+// Archivo 的 standard 檔同時有字重與字寬兩個軸，罐子上的窄體字靠 font-stretch 調出來。
+import '@fontsource-variable/archivo/standard.css'
+import '@fontsource/ibm-plex-mono/400.css'
+import '@fontsource/ibm-plex-mono/500.css'
 import './index.css'
 import { ApiError } from './api/problem'
 

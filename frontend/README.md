@@ -171,6 +171,9 @@ curl -X POST http://localhost:8080/api/v1/film-rolls \
 **✅ 已完成**：#21–27 都已實作。review 時另外加了 `lib/backLink.ts`：
 從唱片櫃點進詳情頁時，返回連結是「← 回到唱片櫃」並帶回原本的篩選，經過編輯、刪除也保留。
 
+> 第 6 階段改版後：照片、`lib/filmStockImage.ts`（改名為 `filmStockKey.ts`）與 `canisterColors()` 都已經拿掉，
+> 頁面也改名為「底片盒」。下面保留的是這一階段當時的說明，涉及照片的部分以第 6 階段為準。
+
 **已經寫好的**（不用動，但值得讀一遍）：
 - `lib/listParams.ts`：`parseStatus` / `parseSort`，從列表頁抽出來共用
 - `hooks/queryKeys.ts` 的 `filmRollKeys.infinite`：為什麼放在 `lists()` 底下
@@ -196,17 +199,48 @@ curl -X POST http://localhost:8080/api/v1/film-rolls \
 `lib/` 的兩支不用 render 任何東西，dev server 開著時直接在瀏覽器 console 驗證：
 
 ```js
-const { toFilmStockKey } = await import('/src/lib/filmStockImage.ts')
+// 檔名已改成第 6 階段的版本，現在貼上去可以直接跑
+const { toFilmStockKey } = await import('/src/lib/filmStockKey.ts')
 toFilmStockKey('Fujifilm', 'Superia X-TRA 400')   // 'FujifilmSuperiaXTRA400'
 
-const { canisterColors } = await import('/src/lib/canisterColors.ts')
-canisterColors('Kodak Portra 400')                 // 同一個字串每次都一樣
+const { hashString } = await import('/src/lib/canisterColors.ts')
+hashString('Kodak Portra 400')                     // 同一個字串每次都一樣
 ```
 
 **建議先把第 27 支的「A. 資料」「F. 畫面」寫出來**，確認卷期排得出來，
 再加 B（焦點）、C（鍵盤）、D（自動載入）、E（換篩選）。一次全寫完再測，出錯時很難判斷是哪一段。
 
 資料只有 15 卷、一頁 20 卷，**看不到自動載入**。測試時可以暫時把 `useInfiniteFilmRolls` 裡的 `size` 改成 5。
+
+### 第 6 階段：唱片櫃視覺改版（`feat/frontend-crate-redesign`）
+
+每一卷改畫成寫實的 SVG 底片罐（略俯視、銀色蓋、片頭、顆粒），唱片櫃不再用照片；
+整站配色換成冷調炭黑（`index.css`），唱片櫃與導覽列拿掉分隔線，每一卷也拿掉外框。
+頁面改名為「底片盒」（路由與程式裡的名稱仍是 `/crate`、`CrateBrowserPage`），導覽列拿掉標語。
+
+**✅ 已完成**：#28–30 都已實作。`guessFilmType` 在 review 後改成比對整個字（`pan` 不再誤中 Japan、Panorama）；
+`dxCode` 的位元表已對照 Wikipedia 原始碼逐格確認。
+
+**已經寫好的**：
+- `components/FilmCanisterSvg.tsx`：底片罐本體與共用的 `CanisterDefs`（App.tsx 放一份）。
+  標籤切成 28 條直條包到圓柱上、光影漸層、焦點卷期滑鼠移上去會轉。檔案開頭有畫法說明
+- `components/RollArtwork.tsx`：準備底片罐的資料，每一項交給下面的 lib 函式
+- `lib/filmStockKey.ts`：原本的 `filmStockImage.ts` 拿掉照片對照表，留下 `toFilmStockKey`，加上 `labelFilmName`
+- 字型：`@fontsource-variable/archivo`、`@fontsource/ibm-plex-mono`（打包進專案，不連 Google Fonts）
+
+| # | 檔案 | 重點 | 寫完怎麼確認 |
+|---|---|---|---|
+| 28 | `lib/canisterColors.ts` 的 `canisterPalette` | 三層查詢：款式 → 品牌 → 雜湊；不分大小寫 | `/crate` 的 Portra、Gold 變成各自的顏色 |
+| 29 | `lib/filmType.ts` 的 `guessFilmType` | 規則的順序、比對整個字而不是 `includes` | Tri-X 的片頭變灰黑色、背面印 `BLACK & WHITE FILM` |
+| 30 | `lib/dxCode.ts` 的 `dxCode` | 查表抄 DX 位元、找最接近的 ISO、字串轉 boolean 陣列 | 焦點卷期滑鼠移上去轉到背面，看 DX 格子 |
+
+三支都還沒寫時罐子一樣畫得出來：配色都是同一組、片頭都是彩色負片、DX 格子全黑。
+`lib/` 的函式一樣可以在瀏覽器 console 直接驗證：
+
+```js
+const { canisterPalette } = await import('/src/lib/canisterColors.ts')
+canisterPalette('kodak', 'portra', 400)            // 和 STOCK_PALETTES.KodakPortra400 同一組
+```
 
 ---
 

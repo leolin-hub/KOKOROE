@@ -221,20 +221,23 @@ export default function CrateBrowserPage() {
   } else if (rolls.length > 0) {
     content = (
       <>
-        <div
-          ref={viewportRef}
-          className={styles.viewport}
-          tabIndex={0}
-          onScroll={handleScroll}
-          onKeyDown={handleKeyDown}
-          aria-label="卷期唱片櫃，用上下方向鍵切換"
-        >
-          <ol ref={listRef} className={styles.list}>
-            {rolls.map((roll, index) => (
-              <CrateItem key={roll.id} roll={roll} offset={index - focusedIndex} linkState={linkState} />
-            ))}
-          </ol>
-          {isFetchingNextPage && <p className={styles.loadingMore}>載入更多…</p>}
+        {/* 外框只負責畫鍵盤焦點：櫃子本身的上下淡出（mask）會把畫在櫃子上的焦點框一起裁掉 */}
+        <div className={styles.frame}>
+          <div
+            ref={viewportRef}
+            className={styles.viewport}
+            tabIndex={0}
+            onScroll={handleScroll}
+            onKeyDown={handleKeyDown}
+            aria-label="底片盒，用上下方向鍵切換卷期"
+          >
+            <ol ref={listRef} className={styles.list}>
+              {rolls.map((roll, index) => (
+                <CrateItem key={roll.id} roll={roll} offset={index - focusedIndex} linkState={linkState} />
+              ))}
+            </ol>
+            {isFetchingNextPage && <p className={styles.loadingMore}>載入更多…</p>}
+          </div>
         </div>
         <p className={styles.hint}>↑ ↓ 切換 · Enter 查看詳情</p>
       </>
@@ -246,7 +249,7 @@ export default function CrateBrowserPage() {
           <p>沒有符合的卷期。</p>
         ) : (
           <>
-            <p>唱片櫃是空的。</p>
+            <p>底片盒是空的。</p>
             <Link to="/film-rolls/new" className={styles.link}>
               來裝第一卷吧
             </Link>
@@ -259,7 +262,7 @@ export default function CrateBrowserPage() {
   return (
     <div className={styles.page}>
       <header className={styles.toolbar}>
-        <h1 className={styles.title}>唱片櫃</h1>
+        <h1 className={styles.title}>底片盒</h1>
         {data && data.pages[0].totalElements > 0 && (
           <p className={styles.counter}>
             第 {focusedIndex + 1} / {data.pages[0].totalElements} 卷

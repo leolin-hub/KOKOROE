@@ -23,21 +23,20 @@
   --distance: 0;
 }
 
+/*
+ * 每一卷不再有外框與底色：底片罐本身就是主角，直接放在櫃子的暗處，
+ * 靠罐子的落影和焦點放大區分前後，不需要一張卡片把它框起來。
+ */
 .record {
   display: grid;
   grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
   align-items: center;
   gap: var(--space-6);
   width: min(100%, 34rem);
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background-color: var(--color-surface);
   transform-origin: center;
   transition:
     transform 0.35s ease,
-    opacity 0.35s ease,
-    border-color 0.35s ease;
+    opacity 0.35s ease;
 }
 
 /* 焦點上方的卷期：上緣往後倒；下方的卷期：下緣往後倒。越遠倒得越多、越小、越淡。 */
@@ -53,7 +52,6 @@
 
 .slot[data-position='focused'] .record {
   transform: scale(1.04);
-  border-color: var(--color-text-muted);
 }
 
 .artworkLink {
@@ -92,6 +90,8 @@
 .details {
   display: flex;
   flex-direction: column;
+  /* 直向 flex 預設會把子元素撐滿整行，狀態標籤會變成一條長膠囊；靠左對齊才維持原本的寬度 */
+  align-items: flex-start;
   gap: var(--space-2);
   transition: opacity 0.35s ease;
 }
@@ -107,13 +107,12 @@
 }
 
 .detailLink {
-  align-self: flex-start;
   font-size: 0.875rem;
 }
 
 @media (max-width: 600px) {
   .record {
-    grid-template-columns: minmax(0, 7rem) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 8rem) minmax(0, 1fr);
     gap: var(--space-4);
   }
 

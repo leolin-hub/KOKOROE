@@ -9,13 +9,12 @@
   flex-direction: column;
 }
 
+/* 導覽列不畫底線也不加底色：和內容之間靠間距區隔，畫面比較乾淨 */
 .header {
   display: flex;
   align-items: baseline;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-6);
-  border-bottom: 1px solid var(--color-border);
-  background-color: var(--color-surface);
 }
 
 .brand {
@@ -27,11 +26,6 @@
 
 .brand:hover {
   color: var(--color-accent);
-}
-
-.tagline {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
 }
 
 /* 導覽連結靠右。margin-left: auto 把整組推到 header 的最右邊。 */
@@ -54,6 +48,7 @@
 .navLinkActive {
   color: var(--color-text);
   text-decoration: underline;
+  text-decoration-color: var(--color-accent);
   text-underline-offset: 0.4em;
 }
 
@@ -66,11 +61,6 @@
 }
 
 @media (max-width: 600px) {
-  /* 手機上標語會擠掉導覽，先藏起來 */
-  .tagline {
-    display: none;
-  }
-
   .header {
     padding: var(--space-3) var(--space-4);
   }

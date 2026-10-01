@@ -45,5 +45,5 @@ function isCrateLinkState(state: unknown): state is CrateLinkState {
 /** 由 `useLocation().state` 決定返回連結；不是從唱片櫃來的一律回列表。 */
 export function readBackLink(state: unknown): BackLink {
   if (!isCrateLinkState(state)) return LIST_BACK_LINK
-  return { to: state.search ? `/crate?${state.search}` : '/crate', label: '回到唱片櫃' }
+  return { to: state.search ? `/crate?${state.search}` : '/crate', label: '回到底片盒' }
 }

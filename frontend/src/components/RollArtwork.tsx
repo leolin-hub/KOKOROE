@@ -1,84 +1,49 @@
 import FilmCanisterSvg from './FilmCanisterSvg'
 import type { FilmRollResponse } from '../types/filmRoll'
 import styles from './RollArtwork.module.css'
-import { useState } from 'react'
-import { findFilmStockImage } from '../lib/filmStockImage'
-import { canisterColors } from '../lib/canisterColors'
-import { formatRollTitle } from '../lib/format'
+import { labelFilmName } from '../lib/filmStockKey'
+import { canisterPalette } from '../lib/canisterColors'
+import { guessFilmType } from '../lib/filmType'
+import { dxCode } from '../lib/dxCode'
 
 interface RollArtworkProps {
   roll: FilmRollResponse
+  /** 焦點卷期：底片罐加上顆粒，滑鼠移上去會轉動。 */
+  focused?: boolean
 }
 
 /**
- * 一卷底片的外觀：有照片用照片，沒有就畫 SVG 底片罐。
+ * 一卷底片的外觀：寫實的 SVG 底片罐，配色、文字、片頭顏色都從這卷的資料算出來。
  *
- * 【影響畫面】唱片櫃瀏覽頁（/crate）每一格左側的大圖。之後步驟 3 有沖洗照片時，也會改由這裡決定封面。
+ * 【影響畫面】唱片櫃瀏覽頁（/crate）每一格左側的底片罐。之後步驟 3 有沖洗照片時，也會改由這裡決定封面。
  *
- * 【會用到】
- *   - `useState`                                   'react'                  ← 要自己 import
- *   - `findFilmStockImage(brand, filmName)`         '../lib/filmStockImage'  ← 要自己 import
- *   - `canisterColors(seed)`                        '../lib/canisterColors'  ← 要自己 import
- *   - `formatRollTitle(filmName, brand)`            '../lib/format'          ← 要自己 import
- *   - `FilmCanisterSvg`、`styles.artwork`、`styles.photo`（已 import）
+ * 以前這裡會先找外觀照片、找不到才畫 SVG；改成每一卷都畫底片罐之後照片就不用了：
+ * 照片（多半是廠商的商品照）和畫出來的罐子排在一起風格不一致，放進公開的 repo 也有版權疑慮。
  *
- * 【步驟】
- * 1. 把參數改成解構：`export default function RollArtwork({ roll }: RollArtworkProps)`，刪掉 `void props`。
- * 2. 查照片：`const imageUrl = findFilmStockImage(roll.brand, roll.filmName)`
- * 3. 記住「照片載入失敗」：`const [imageFailed, setImageFailed] = useState(false)`
- *    對照表說有，但檔案可能被刪掉或檔名打錯；這時要退回 SVG，而不是顯示一個破圖示。
- * 4. 有照片且沒失敗時：
- *    ```tsx
- *    <div className={styles.artwork}>
- *      <img
- *        className={styles.photo}
- *        src={imageUrl}
- *        alt={`${title} 底片捲`}
- *        loading="lazy"
- *        onError={() => setImageFailed(true)}
- *      />
- *    </div>
- *    ```
- *    其中 `const title = formatRollTitle(roll.filmName, roll.brand)`。
- * 5. 否則畫底片罐：
- *    - `const colors = canisterColors(title)`
- *    - `<FilmCanisterSvg bodyColor={colors.body} labelColor={colors.label} title={...} subtitle={`ISO ${roll.iso}`} />`
- *    - title 用品牌，沒有品牌時用底片名稱：`roll.brand ?? roll.filmName`
- *    - 一樣包在 `<div className={styles.artwork}>` 裡，兩種外觀的外框大小才會一致。
- *
- * 【坑】
- * - `loading="lazy"`：唱片櫃一次載入 20 卷，看不到的那些先不下載圖片。
- * - `alt` 不能省，也不要寫「圖片」這種沒資訊的字；螢幕閱讀器使用者要知道這是哪一卷。
- * - `imageFailed` 是這個元件自己的 state：如果同一個 RollArtwork 換成顯示另一卷，舊的失敗狀態會殘留。
- *   唱片櫃用 `key={roll.id}` 渲染，換卷就是換一個元件，所以不會發生；但要知道這個前提。
+ * 這支只負責「準備資料」，每一項都交給一支 lib 函式：
+ *   labelFilmName   片名拿掉重複的品牌與 ISO        lib/filmStockKey.ts
+ *   canisterPalette 三層配色：款式 → 品牌 → 雜湊     lib/canisterColors.ts  ← 你來寫
+ *   guessFilmType   從片名推測彩色／黑白／正片       lib/filmType.ts        ← 你來寫
+ *   dxCode          罐身背面的 DX 格子               lib/dxCode.ts          ← 你來寫
+ * 那三支還沒寫的時候，罐子一樣畫得出來：配色都是同一組、片頭都是彩色負片、DX 格子全黑。
  */
-export default function RollArtwork({ roll }: RollArtworkProps) {
-  const imageUrl = findFilmStockImage(roll.brand, roll.filmName)
-  const [imageFailed, setImageFailed] = useState(false)
-  const title = formatRollTitle(roll.filmName, roll.brand)
+export default function RollArtwork({ roll, focused = false }: RollArtworkProps) {
+  // 後端與表單都沒有 trim 品牌，' Kodak ' 會原樣存進來。在這裡統一整理一次，後面的函式都拿到乾淨的值；
+  // 只有空白的品牌當作沒有品牌（否則罐子上會印出一行空白）
+  const brand = roll.brand?.trim() || undefined
+  const name = labelFilmName(brand, roll.filmName, roll.iso)
 
-  if (imageUrl && !imageFailed) {
-    return (
-      <div className={styles.artwork}>
-        <img
-          className={styles.photo}
-          src={imageUrl}
-          alt={`${title} 底片捲`}
-          loading="lazy"
-          onError={() => setImageFailed(true)}
-        />
-      </div>
-    )
-  }
-
-  const colors = canisterColors(title)
   return (
     <div className={styles.artwork}>
       <FilmCanisterSvg
-        bodyColor={colors.body}
-        labelColor={colors.label}
-        title={roll.brand ?? roll.filmName}
-        subtitle={`ISO ${roll.iso}`}
+        brand={brand}
+        name={name}
+        iso={roll.iso}
+        format={roll.format}
+        palette={canisterPalette(brand, name, roll.iso)}
+        filmType={guessFilmType(brand, roll.filmName)}
+        dx={dxCode(roll.iso)}
+        focused={focused}
       />
     </div>
   )
