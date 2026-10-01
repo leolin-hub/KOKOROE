@@ -1,9 +1,8 @@
-import { Link, NavLink, Navigate, Route, Routes } from 'react-router'
-import FilmRollListPage from './pages/FilmRollListPage'
+import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router'
+import FilmRollsPage from './pages/FilmRollsPage'
 import FilmRollDetailPage from './pages/FilmRollDetailPage'
 import FilmRollCreatePage from './pages/FilmRollCreatePage'
 import FilmRollEditPage from './pages/FilmRollEditPage'
-import CrateBrowserPage from './pages/CrateBrowserPage'
 import CameraListPage from './pages/CameraListPage'
 import CameraCreatePage from './pages/CameraCreatePage'
 import CameraEditPage from './pages/CameraEditPage'
@@ -16,11 +15,12 @@ import styles from './App.module.css'
  *
  * 路由設計：
  *   /                      → 重導到 /film-rolls
- *   /film-rolls            → 列表（篩選與分頁放在 query string）
+ *   /film-rolls            → 卷期頁，清單檢視（篩選與分頁放在 query string）
+ *   /film-rolls?view=crate → 卷期頁，底片盒檢視（同一批卷期，一次看一卷）
  *   /film-rolls/new        → 新增
  *   /film-rolls/:id        → 詳情
  *   /film-rolls/:id/edit   → 編輯
- *   /crate                 → 唱片櫃瀏覽（篩選與排序同樣放在 query string）
+ *   /crate                 → 舊網址，導向 /film-rolls?view=crate（保留原本的篩選）
  *   /cameras               → 相機列表
  *   /cameras/new           → 新增相機
  *   /cameras/:id/edit      → 編輯相機（含刪除；相機沒有獨立的詳情頁）
@@ -58,12 +58,6 @@ export default function App() {
             卷期
           </NavLink>
           <NavLink
-            to="/crate"
-            className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
-          >
-            底片盒
-          </NavLink>
-          <NavLink
             to="/cameras"
             className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
           >
@@ -75,11 +69,11 @@ export default function App() {
       <main className={styles.main}>
         <Routes>
           <Route path="/" element={<Navigate to="/film-rolls" replace />} />
-          <Route path="/film-rolls" element={<FilmRollListPage />} />
+          <Route path="/film-rolls" element={<FilmRollsPage />} />
           <Route path="/film-rolls/new" element={<FilmRollCreatePage />} />
           <Route path="/film-rolls/:id" element={<FilmRollDetailPage />} />
           <Route path="/film-rolls/:id/edit" element={<FilmRollEditPage />} />
-          <Route path="/crate" element={<CrateBrowserPage />} />
+          <Route path="/crate" element={<LegacyCrateRedirect />} />
           <Route path="/cameras" element={<CameraListPage />} />
           <Route path="/cameras/new" element={<CameraCreatePage />} />
           <Route path="/cameras/:id/edit" element={<CameraEditPage />} />
@@ -88,4 +82,16 @@ export default function App() {
       </main>
     </div>
   )
+}
+
+/**
+ * 舊網址 `/crate` 導向卷期頁的底片盒檢視，原本的篩選一起帶過去：
+ *   /crate?status=LOADED → /film-rolls?status=LOADED&view=crate
+ * `replace` 把舊網址從瀏覽紀錄換掉，按上一頁才不會又被導回來、卡在原地。
+ */
+function LegacyCrateRedirect() {
+  const { search } = useLocation()
+  const params = new URLSearchParams(search)
+  params.set('view', 'crate')
+  return <Navigate to={`/film-rolls?${params}`} replace />
 }

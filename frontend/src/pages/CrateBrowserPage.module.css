@@ -14,21 +14,16 @@
   --crate-slot-height: 15rem;
 }
 
+/* 篩選列在上（和清單檢視同一個位置），計數在下 */
 .toolbar {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-
-.title {
-  margin: 0;
-  font-size: 1.5rem;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 /* 「第 3 / 15 卷」：等寬數字，捲動時數字變化不會讓整行左右跳 */
 .counter {
+  margin: 0;
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums;
   color: var(--color-text-muted);

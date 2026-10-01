@@ -2,7 +2,7 @@ import { SORT_OPTIONS, STATUS_ORDER } from './constants'
 import type { FilmRollStatus } from '../types/filmRoll'
 
 /*
- * 卷期列表頁與唱片櫃瀏覽頁共用的 URL 參數解析。
+ * 卷期頁兩種檢視（清單、底片盒）共用的 URL 參數解析。
  *
  * URL 是使用者可以亂打的外部輸入，讀進來一律先驗證，不合法就退回預設值。
  * 否則 `?status=BANANA` 會原封不動送到後端，換來一個 400。
@@ -18,4 +18,14 @@ export function parseStatus(raw: string | null): FilmRollStatus | undefined {
 
 export function parseSort(raw: string | null): string {
   return SORT_OPTIONS.some((o) => o.value === raw) ? (raw as string) : DEFAULT_SORT
+}
+
+/**
+ * 卷期頁的檢視方式。`?view=crate` 是底片盒，其他（沒有、或亂打）一律是清單。
+ * 清單是預設值，所以清單的網址不帶 view，維持原本的 `/film-rolls`。
+ */
+export type RollsView = 'list' | 'crate'
+
+export function parseView(raw: string | null): RollsView {
+  return raw === 'crate' ? 'crate' : 'list'
 }

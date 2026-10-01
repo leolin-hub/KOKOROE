@@ -11,9 +11,10 @@ import ErrorBanner from '../components/ErrorBanner'
 import type { FilmRollStatus } from '../types/filmRoll'
 
 /**
- * 唱片櫃瀏覽頁。路由 `/crate`。
+ * 卷期頁的「底片盒」檢視。網址 `/film-rolls?view=crate`（舊的 `/crate` 會導過來）。
+ * 標題、檢視切換與新增按鈕在外層的 `FilmRollsPage`；這支從計數列開始。
  *
- * 【影響畫面】上方導覽列「唱片櫃」點進來的頁面：
+ * 【影響畫面】卷期頁切到「底片盒」時看到的內容（以下是當初寫成獨立頁面時的說明，標題已移到外層）：
  *   標題「唱片櫃」＋「第 3 / 15 卷」
  *   篩選列（和列表頁同一個 FilmRollFilters，狀態與排序）
  *   一個固定高度的櫃子，垂直捲動、每次停在某一卷的正中央；焦點卷期放大，其他往後傾
@@ -262,13 +263,12 @@ export default function CrateBrowserPage() {
   return (
     <div className={styles.page}>
       <header className={styles.toolbar}>
-        <h1 className={styles.title}>底片盒</h1>
+        <FilmRollFilters status={status} sort={sort} onStatusChange={handleStatusChange} onSortChange={handleSortChange} />
         {data && data.pages[0].totalElements > 0 && (
           <p className={styles.counter}>
             第 {focusedIndex + 1} / {data.pages[0].totalElements} 卷
           </p>
         )}
-        <FilmRollFilters status={status} sort={sort} onStatusChange={handleStatusChange} onSortChange={handleSortChange} />
       </header>
       {content}
     </div>
