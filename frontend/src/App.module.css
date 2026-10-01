@@ -28,11 +28,6 @@
   color: var(--color-accent);
 }
 
-.tagline {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-}
-
 /* 導覽連結靠右。margin-left: auto 把整組推到 header 的最右邊。 */
 .nav {
   display: flex;
@@ -66,11 +61,6 @@
 }
 
 @media (max-width: 600px) {
-  /* 手機上標語會擠掉導覽，先藏起來 */
-  .tagline {
-    display: none;
-  }
-
   .header {
     padding: var(--space-3) var(--space-4);
   }

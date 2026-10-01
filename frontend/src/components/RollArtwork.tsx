@@ -28,17 +28,20 @@ interface RollArtworkProps {
  * 那三支還沒寫的時候，罐子一樣畫得出來：配色都是同一組、片頭都是彩色負片、DX 格子全黑。
  */
 export default function RollArtwork({ roll, focused = false }: RollArtworkProps) {
-  const name = labelFilmName(roll.brand, roll.filmName, roll.iso)
+  // 後端與表單都沒有 trim 品牌，' Kodak ' 會原樣存進來。在這裡統一整理一次，後面的函式都拿到乾淨的值；
+  // 只有空白的品牌當作沒有品牌（否則罐子上會印出一行空白）
+  const brand = roll.brand?.trim() || undefined
+  const name = labelFilmName(brand, roll.filmName, roll.iso)
 
   return (
     <div className={styles.artwork}>
       <FilmCanisterSvg
-        brand={roll.brand}
+        brand={brand}
         name={name}
         iso={roll.iso}
         format={roll.format}
-        palette={canisterPalette(roll.brand, name, roll.iso)}
-        filmType={guessFilmType(roll.brand, roll.filmName)}
+        palette={canisterPalette(brand, name, roll.iso)}
+        filmType={guessFilmType(brand, roll.filmName)}
         dx={dxCode(roll.iso)}
         focused={focused}
       />

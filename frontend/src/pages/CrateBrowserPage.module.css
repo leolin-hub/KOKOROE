@@ -54,9 +54,21 @@
   display: none;
 }
 
-.viewport:focus-visible {
+/*
+ * 鍵盤焦點畫在外框上，不畫在 .viewport：mask 會裁掉元素自己的 outline，
+ * 上下緣又在淡出區裡，畫在 .viewport 上鍵盤使用者會完全看不到焦點。
+ */
+.frame {
+  border-radius: var(--radius-sm);
+}
+
+.frame:has(.viewport:focus-visible) {
   outline: 2px solid var(--color-accent);
   outline-offset: 4px;
+}
+
+.viewport:focus-visible {
+  outline: none;
 }
 
 /*
@@ -90,8 +102,9 @@
   color: var(--color-text-muted);
   text-align: center;
 }
+
 .link {
-  color: var(--color-text-link);
+  color: var(--color-accent);
   text-decoration: none;
 }
 

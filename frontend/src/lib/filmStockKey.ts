@@ -51,6 +51,7 @@ export function toFilmStockKey(brand: string | undefined, filmName: string): str
  *   labelFilmName('Kodak', 'Portra 400', 400)       → 'Portra'
  *   labelFilmName('Kodak', 'Kodak Portra 400', 400) → 'Portra'
  *   labelFilmName('Ilford', 'HP5 Plus', 400)        → 'HP5 Plus'
+ *   labelFilmName('Kodak', 'Pro 1400', 400)         → 'Pro 1400' （1400 不是 ISO 400，ISO 要是獨立的一個字才拿掉）
  *   labelFilmName('Fujifilm', '200', 200)           → '200'    （拿完變空字串時，退回原本的片名）
  */
 export function labelFilmName(brand: string | undefined, filmName: string, iso: number): string {
@@ -59,6 +60,7 @@ export function labelFilmName(brand: string | undefined, filmName: string, iso: 
   if (brand && name.toLowerCase().startsWith(`${brand.toLowerCase()} `)) {
     name = name.slice(brand.length).trim()
   }
-  name = name.replace(new RegExp(`\\s*${iso}$`), '').trim()
+  // `\s+` 至少一個空白：ISO 前面要有空白隔開，才不會把 1400 的尾巴 400 當成 ISO 切掉
+  name = name.replace(new RegExp(`\\s+${iso}$`), '').trim()
   return name || original
 }

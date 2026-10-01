@@ -5,7 +5,7 @@ import type { FilmType } from '../lib/filmType'
 import type { DxCode } from '../lib/dxCode'
 import { hashString } from '../lib/canisterColors'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import styles from './RollArtwork.module.css'
+import styles from './FilmCanisterSvg.module.css'
 
 /*
  * 寫實的 135 底片罐，稍微俯視（看得到橢圓頂蓋）。
@@ -24,8 +24,11 @@ import styles from './RollArtwork.module.css'
  * JSX 裡的 transform 永遠是「角度 0」的固定字串，React 比對時值沒變就不會去動 DOM，所以不會蓋掉轉到一半的角度。
  *
  * 共用的漸層、裁切區與濾鏡在 `CanisterDefs`，整個 app 只 render 一次（App.tsx）。
+ * 沒有 `CanisterDefs` 的頁面畫出來的罐子沒有光影、標籤也裁不出來 —— 在 App 以外的地方 render 罐子時要記得一起放。
  * 每個罐子只有自己的標籤內容需要獨立的 id（用 useId 產生）。
  */
+
+// ── 幾何（單位都是 viewBox 的單位）────────────────────────────
 
 // 罐身寬 100（半徑 R = 50），中心 x = 90。標籤攤平的長度 = 圓周 2πR，正面看得到半圈。
 const CX = 90
@@ -34,6 +37,23 @@ const STRIP_COUNT = 28
 const LABEL_LENGTH = 2 * Math.PI * R
 const FRONT_CENTER = (Math.PI * R) / 2
 const SPIN_SPEED = LABEL_LENGTH / 7 // 每秒轉 1/7 圈
+
+/** 標籤底色的範圍：畫兩份標籤（轉到接縫時不露白），左右各多 10 */
+const LABEL_BG = { x: -10, width: 2 * LABEL_LENGTH + 20 }
+/** 罐身上光影與顆粒覆蓋的範圍（會再被罐身的裁切區裁掉） */
+const BODY_OVERLAY = { x: 38, y: 56, width: 104, height: 180 }
+
+/** 標籤背面的欄位位置：規格小字、條碼、DX 格子、直排品牌，由左到右不重疊 */
+const BACK_TEXT_X = 176
+const BARCODE_X = 238
+const DX_X = 238
+const DX_Y = 186
+const DX_PITCH = 7.2
+const DX_CELL = 6.6
+const BACK_BRAND_X = 306
+
+const LEADER_PATH = 'M142,74 L206,74 Q214,74 214,82 L214,130 Q214,138 206,138 L178,138 C169,138 171,206 160,206 L142,206 Z'
+const LEADER_TOP_HOLES = [147, 165.3, 183.6, 201.9]
 
 /** 正面第 i 條直條在螢幕上的 x 範圍（sx0～sx1），以及它對應到標籤上的哪一段（u0 起、長 du）。 */
 const STRIPS = Array.from({ length: STRIP_COUNT }, (_, i) => {
@@ -61,12 +81,44 @@ const FILM_TYPE_PRINT: Record<FilmType, { line: string; process: string; base: s
   slide: { line: 'COLOR REVERSAL FILM', process: 'PROCESS E-6', base: '#55585c' },
 }
 
+// ── 文字排進固定寬度 ────────────────────────────────────
+
+/** 全形字（中日韓）約等於一個字級寬；半形字依字型而定，由呼叫端給 narrowEm */
+const WIDE_CHAR = /[⺀-鿿가-힯＀-￯]/u
+
+interface FitOptions {
+  /** 可用寬度 */
+  width: number
+  /** 字級上限（短字不放大超過這個） */
+  max: number
+  /** 字級下限：再小就讀不到，改成截斷加「…」 */
+  min: number
+  /** 半形字寬是字級的幾倍（窄體粗字約 0.5） */
+  narrowEm: number
+  /** 字距是字級的幾倍 */
+  trackingEm?: number
+}
+
 /**
- * 估算字級：一行字超過 width 時縮小。SVG 的 <text> 不會自動換行，不縮就會跑到罐子外。
- * ratio 是一個字大約佔字級的幾倍寬（窄體粗字約 0.5），spacing 是字距。估算即可，不需要精準。
+ * 決定一行字的字級：放得下就用 max，放不下就縮小，縮到 min 還放不下就截斷。
+ * SVG 的 <text> 不會自動換行，不處理的話長名字會繞到罐子側面去。
+ * 寬度是估算的（不同字母寬度不同），只求「不會超出太多」。精準量測要等元素掛上畫面，會多一次 render。
  */
-function fitFontSize(text: string, max: number, width: number, ratio: number, spacing = 0): number {
-  return Math.min(max, (width / Math.max(text.length, 1) - spacing) / ratio)
+function fitText(text: string, options: FitOptions): { text: string; fontSize: number; letterSpacing: number } {
+  const tracking = options.trackingEm ?? 0
+  const emWidth = (chars: string[]) =>
+    chars.reduce((sum, ch) => sum + (WIDE_CHAR.test(ch) ? 1 : options.narrowEm) + tracking, 0)
+
+  const chars = [...text]
+  const size = options.width / Math.max(emWidth(chars), 0.01)
+  if (size >= options.min) {
+    const fontSize = Math.min(options.max, size)
+    return { text, fontSize, letterSpacing: fontSize * tracking }
+  }
+
+  // 縮到最小還放不下：從後面一個字一個字拿掉，直到加上「…」也放得下
+  while (chars.length > 1 && (emWidth(chars) + options.narrowEm) * options.min > options.width) chars.pop()
+  return { text: `${chars.join('').trimEnd()}…`, fontSize: options.min, letterSpacing: options.min * tracking }
 }
 
 /** ISO 換成 DIN 度數，罐子上印成 `ISO 400/27°`。 */
@@ -74,7 +126,19 @@ function dinDegrees(iso: number): number {
   return Math.round(10 * Math.log10(iso) + 1)
 }
 
+/** 條碼：20 條粗細不一的線，粗細由名稱的雜湊決定（裝飾用，不是真的條碼）。 */
+function barcode(seed: number): { x: number; width: number }[] {
+  let x = 0
+  return Array.from({ length: 20 }, (_, i) => {
+    const width = (seed >>> i) & 1 ? 1.7 : 0.8
+    const bar = { x, width }
+    x += width + 0.9
+    return bar
+  })
+}
+
 interface FilmCanisterSvgProps {
+  /** 已經去掉前後空白；沒有品牌時是 undefined */
   brand?: string
   /** 已經拿掉品牌與 ISO 的片名，例如 `'Portra'`（見 `labelFilmName`） */
   name: string
@@ -88,7 +152,8 @@ interface FilmCanisterSvgProps {
 }
 
 export default function FilmCanisterSvg({ brand, name, iso, format, palette, filmType, dx, focused = false }: FilmCanisterSvgProps) {
-  const labelId = `canister-label-${useId().replace(/[^\w-]/g, '')}`
+  const reactId = useId()
+  const labelId = `canister-label-${reactId}`
   const usesRef = useRef<(SVGUseElement | null)[]>([])
   const offsetRef = useRef(0)
   const [hovering, setHovering] = useState(false)
@@ -110,15 +175,11 @@ export default function FilmCanisterSvg({ brand, name, iso, format, palette, fil
   }, [spinning])
 
   const print = FILM_TYPE_PRINT[filmType]
-  const brandText = brand?.toUpperCase() ?? ''
-  // 條碼：20 條粗細不一的線，粗細由名稱的雜湊決定（裝飾用，不是真的條碼）
-  const barSeed = hashString(`${brand ?? ''}${name}`)
-  const bars: { x: number; width: number }[] = []
-  for (let i = 0, x = 0; i < 20; i++) {
-    const width = (barSeed >>> i) & 1 ? 1.7 : 0.8
-    bars.push({ x, width })
-    x += width + 0.9
-  }
+  const brandText = brand?.toUpperCase()
+  const frontBrand = brandText && fitText(brandText, { width: 92, max: 10.5, min: 5.5, narrowEm: 0.62, trackingEm: 0.28 })
+  const backBrand = brandText && fitText(brandText, { width: 128, max: 11, min: 6, narrowEm: 0.55, trackingEm: 0.11 })
+  const frontName = fitText(name, { width: 96, max: 25, min: 8, narrowEm: 0.5 })
+  const bars = barcode(hashString(`${brand ?? ''}${name}`))
 
   /** 標籤攤平後的一份（長度 = 圓周）。畫兩份接在一起，轉到接縫時才不會露出空白。 */
   function labelCopy(ox: number) {
@@ -126,13 +187,13 @@ export default function FilmCanisterSvg({ brand, name, iso, format, palette, fil
     return (
       <g key={ox}>
         {/* 正面：品牌、片名、ISO */}
-        {brandText && (
-          <text x={c} y={98} textAnchor="middle" fontSize={fitFontSize(brandText, 10.5, 92, 0.62, 3)} fontWeight={700} style={{ letterSpacing: 3 }} fill={palette.ink}>
-            {brandText}
+        {frontBrand && (
+          <text x={c} y={98} textAnchor="middle" fontSize={frontBrand.fontSize} fontWeight={700} style={{ letterSpacing: frontBrand.letterSpacing }} fill={palette.ink}>
+            {frontBrand.text}
           </text>
         )}
-        <text x={c} y={131} textAnchor="middle" fontSize={fitFontSize(name, 25, 96, 0.5)} fontWeight={800} style={{ fontStretch: '78%' }} fill={palette.ink}>
-          {name}
+        <text x={c} y={131} textAnchor="middle" fontSize={frontName.fontSize} fontWeight={800} style={{ fontStretch: '78%' }} fill={palette.ink}>
+          {frontName.text}
         </text>
         <text className={styles.mono} x={c} y={170} textAnchor="middle" fontSize={6.4} style={{ letterSpacing: 2.2 }} fill={palette.accentInk}>
           ISO
@@ -142,44 +203,48 @@ export default function FilmCanisterSvg({ brand, name, iso, format, palette, fil
         </text>
 
         {/* 背面：規格小字、條碼、DX 格子、直排品牌 */}
-        <text x={ox + 176} y={98} fontSize={17} fontWeight={800} style={{ fontStretch: '78%' }} fill={palette.ink}>
+        <text x={ox + BACK_TEXT_X} y={98} fontSize={17} fontWeight={800} style={{ fontStretch: '78%' }} fill={palette.ink}>
           {format}
         </text>
-        <text className={styles.mono} x={ox + 176} y={110} fontSize={6.2} fill={palette.ink}>
+        <text className={styles.mono} x={ox + BACK_TEXT_X} y={110} fontSize={6.2} fill={palette.ink}>
           ISO {iso}/{dinDegrees(iso)}°
         </text>
-        <text className={styles.mono} x={ox + 176} y={119} fontSize={4.6} style={{ letterSpacing: 0.4 }} fill={palette.ink}>
+        <text className={styles.mono} x={ox + BACK_TEXT_X} y={119} fontSize={4.6} style={{ letterSpacing: 0.4 }} fill={palette.ink}>
           {print.line}
         </text>
-        <text className={styles.mono} x={ox + 176} y={127} fontSize={4.6} style={{ letterSpacing: 0.4 }} fill={palette.ink}>
+        <text className={styles.mono} x={ox + BACK_TEXT_X} y={127} fontSize={4.6} style={{ letterSpacing: 0.4 }} fill={palette.ink}>
           {print.process}
         </text>
         {bars.map((bar) => (
-          <rect key={bar.x} x={ox + 214 + bar.x} y={92} width={bar.width} height={30} fill={palette.ink} />
+          <rect key={bar.x} x={ox + BARCODE_X + bar.x} y={92} width={bar.width} height={30} fill={palette.ink} />
         ))}
-        <rect x={ox + 213} y={185} width={44.4} height={15.6} fill="#151312" />
+        <rect x={ox + DX_X - 1} y={DX_Y - 1} width={6 * DX_PITCH + 1.2} height={2 * DX_PITCH + 1.2} fill="#151312" />
         {[dx.row1, dx.row2].map((row, r) =>
           Array.from({ length: 6 }, (_, col) => (
             <rect
               key={`${r}-${col}`}
-              x={ox + 214 + col * 7.2}
-              y={186 + r * 7.2}
-              width={6.6}
-              height={6.6}
+              x={ox + DX_X + col * DX_PITCH}
+              y={DX_Y + r * DX_PITCH}
+              width={DX_CELL}
+              height={DX_CELL}
               fill={row[col] ? '#c9c4bb' : '#151312'}
             />
           )),
         )}
-        {brandText && (
-          <text transform={`translate(${ox + 272} 198) rotate(-90)`} fontSize={11} fontWeight={800} style={{ fontStretch: '80%', letterSpacing: 1.2 }} fill={palette.ink}>
-            {brandText}
+        {backBrand && (
+          <text
+            transform={`translate(${ox + BACK_BRAND_X} 198) rotate(-90)`}
+            fontSize={backBrand.fontSize}
+            fontWeight={800}
+            style={{ fontStretch: '80%', letterSpacing: backBrand.letterSpacing }}
+            fill={palette.ink}
+          >
+            {backBrand.text}
           </text>
         )}
       </g>
     )
   }
-
-  const leaderPath = 'M142,74 L206,74 Q214,74 214,82 L214,130 Q214,138 206,138 L178,138 C169,138 171,206 160,206 L142,206 Z'
 
   return (
     <svg
@@ -187,14 +252,15 @@ export default function FilmCanisterSvg({ brand, name, iso, format, palette, fil
       viewBox="20 32 206 226"
       role="img"
       aria-label={`${brand ? `${brand} ` : ''}${name} ISO ${iso} 底片罐`}
-      onPointerEnter={focused ? () => setHovering(true) : undefined}
-      onPointerLeave={focused ? () => setHovering(false) : undefined}
+      // 一律掛上：只在焦點時才掛的話，滑鼠還在上面就失去焦點的那一卷收不到 leave，之後會自己轉起來
+      onPointerEnter={() => setHovering(true)}
+      onPointerLeave={() => setHovering(false)}
     >
       <defs>
         <g id={labelId} className={styles.label}>
-          <rect x={-10} y={40} width={2 * LABEL_LENGTH + 20} height={200} fill={palette.base} />
-          <rect x={-10} y={150} width={2 * LABEL_LENGTH + 20} height={90} fill={palette.accent} />
-          <rect x={-10} y={145.5} width={2 * LABEL_LENGTH + 20} height={1.2} fill={palette.ink} opacity={0.45} />
+          <rect x={LABEL_BG.x} y={40} width={LABEL_BG.width} height={200} fill={palette.base} />
+          <rect x={LABEL_BG.x} y={150} width={LABEL_BG.width} height={90} fill={palette.accent} />
+          <rect x={LABEL_BG.x} y={145.5} width={LABEL_BG.width} height={1.2} fill={palette.ink} opacity={0.45} />
           {labelCopy(0)}
           {labelCopy(LABEL_LENGTH)}
         </g>
@@ -204,9 +270,9 @@ export default function FilmCanisterSvg({ brand, name, iso, format, palette, fil
       <ellipse className={styles.ground} cx={100} cy={236} rx={66} ry={10} filter="url(#canister-blur)" />
 
       {/* 片頭：片基顏色依底片種類，齒孔是鏤空的（填背景色） */}
-      <path d={leaderPath} fill={print.base} />
-      <path d={leaderPath} fill="url(#canister-leader-sheen)" />
-      {[147, 165.3, 183.6, 201.9].map((x) => (
+      <path d={LEADER_PATH} fill={print.base} />
+      <path d={LEADER_PATH} fill="url(#canister-leader-sheen)" />
+      {LEADER_TOP_HOLES.map((x) => (
         <rect key={x} className={styles.hole} x={x} y={81} width={7.6} height={10} rx={1.2} />
       ))}
       <rect className={styles.hole} x={147} y={189} width={7.6} height={10} rx={1.2} />
@@ -224,9 +290,9 @@ export default function FilmCanisterSvg({ brand, name, iso, format, palette, fil
             />
           </g>
         ))}
-        <rect x={38} y={56} width={104} height={180} fill="url(#canister-shade)" />
+        <rect {...BODY_OVERLAY} fill="url(#canister-shade)" />
         <path d="M40,70 A50,12 0 0 0 140,70 L140,90 A50,12 0 0 1 40,90 Z" fill="url(#canister-cap-shadow)" />
-        {focused && <rect x={38} y={56} width={104} height={180} filter="url(#canister-grain)" opacity={0.32} />}
+        {focused && <rect {...BODY_OVERLAY} filter="url(#canister-grain)" opacity={0.32} />}
       </g>
 
       {/* 遮光絨：片頭出口 */}

@@ -1,0 +1,52 @@
+/*
+ * SVG 底片罐的樣式。顏色大多直接寫在 SVG 的漸層裡（CanisterDefs），這裡只放跟主題有關的部分。
+ */
+
+.canister {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* 標籤上的字：窄體粗字用 Archivo，小字與數字用等寬字（main.tsx 載入字型） */
+.label text {
+  font-family: var(--font-canister);
+}
+
+.label .mono {
+  font-family: var(--font-mono);
+}
+
+/* 齒孔是鏤空的：填背景色，看起來就像能透過孔看到後面 */
+.hole {
+  fill: var(--color-bg);
+}
+
+.ground {
+  fill: rgb(0 0 0 / 0.8);
+}
+
+/* 金屬蓋的壓邊溝紋、邊緣反光 */
+.groove {
+  fill: none;
+  stroke: rgb(0 0 0 / 0.45);
+  stroke-width: 0.7;
+}
+
+.lip {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.28);
+  stroke-width: 0.6;
+}
+
+.rim {
+  fill: none;
+  stroke: rgb(255 255 255 / 0.35);
+  stroke-width: 0.6;
+}
+
+.rimInner {
+  fill: none;
+  stroke: rgb(0 0 0 / 0.4);
+  stroke-width: 0.8;
+}

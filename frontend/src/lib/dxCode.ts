@@ -24,7 +24,30 @@ export interface DxCode {
  * 我沒有把握記得每一格正確，所以這張表不幫你填 —— 填錯的話畫面不會壞，只是罐子上的格子不是真的。
  * 至少填你手上有的：100、200、400、800。
  */
-export const DX_SPEED_BITS: Readonly<Record<number, string>> = {}
+export const DX_SPEED_BITS: Readonly<Record<number, string>> = {
+  25: '00010',   32: '00001',   40: '00011',
+  50: '10010',   64: '10001',   80: '10011',
+  100: '01010',  125: '01001',  160: '01011',
+  200: '11010',  250: '11001',  320: '11011',
+  400: '00110',  500: '00101',  640: '00111',
+  800: '10110',  1000: '10101', 1250: '10111',
+  1600: '01110', 2000: '01101', 2500: '01111',
+  3200: '11110', 4000: '11101', 5000: '11111',
+}
+
+/** 第二排 L1～L3：36 張 = F F T → '001' */
+const LENGTH_36_BITS = '001'
+/** 第二排 T1～T2：±1 級 = T F → '10' */
+const LATITUDE_PM1_BITS = '10'
+
+/** '10010' → [true, false, false, true, false]，長度不足補 '0' */
+function bitsToRow(bits: string, length: number): boolean[] {
+  return bits
+    .padEnd(length, '0')
+    .slice(0, length)
+    .split('')
+    .map((c) => c === '1')
+}
 
 /**
  * 依 ISO 產生罐身的 DX 格子。
@@ -64,9 +87,23 @@ export const DX_SPEED_BITS: Readonly<Record<number, string>> = {}
  *   同樣的資訊也可以存成一個整數（例如 `0b10010`），用 `(n >> i) & 1` 取出第 i 位 —— 想試的話可以改寫看看。
  */
 export function dxCode(iso: number): DxCode {
-  void iso
-  return {
-    row1: [true, false, false, false, false, false],
-    row2: [true, false, false, false, false, false],
+  // 1. 表裡所有 ISO（key 是字串，要轉回數字）
+  const isos = Object.keys(DX_SPEED_BITS).map(Number)
+
+  // 2. 找最接近的 ISO；表是空的就全部塗漆
+  let speedBits = '00000'
+  if (isos.length > 0) {
+    const nearest = isos.reduce((best, x) =>
+      Math.abs(x - iso) < Math.abs(best - iso) ? x : best,
+    )
+    speedBits = DX_SPEED_BITS[nearest]
   }
+
+  // 3. 接地格接在最前面
+  const row1 = [true, ...bitsToRow(speedBits, 5)]
+
+  // 4. 第二排：接地 + 張數 + 寬容度
+  const row2 = [true, ...bitsToRow(LENGTH_36_BITS + LATITUDE_PM1_BITS, 5)]
+
+  return { row1, row2 }
 }

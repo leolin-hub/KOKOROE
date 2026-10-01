@@ -1,56 +1,8 @@
 /*
- * 底片罐外觀。SVG 的 viewBox 已經包含片頭與落影，寬度交給外層，高度依比例自動算。
+ * 一卷底片的外觀外框。底片罐本身的樣式在 FilmCanisterSvg.module.css；
+ * SVG 的 viewBox 已經包含片頭與落影，寬度交給這裡，高度依比例自動算。
  */
 
 .artwork {
   width: 100%;
-}
-
-.canister {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-/* 標籤上的字：窄體粗字用 Archivo，小字與數字用等寬字（main.tsx 載入字型） */
-.label text {
-  font-family: var(--font-canister);
-}
-
-.label .mono {
-  font-family: var(--font-mono);
-}
-
-/* 齒孔是鏤空的：填背景色，看起來就像能透過孔看到後面 */
-.hole {
-  fill: var(--color-bg);
-}
-
-.ground {
-  fill: rgb(0 0 0 / 0.8);
-}
-
-/* 金屬蓋的壓邊溝紋、邊緣反光 */
-.groove {
-  fill: none;
-  stroke: rgb(0 0 0 / 0.45);
-  stroke-width: 0.7;
-}
-
-.lip {
-  fill: none;
-  stroke: rgb(255 255 255 / 0.28);
-  stroke-width: 0.6;
-}
-
-.rim {
-  fill: none;
-  stroke: rgb(255 255 255 / 0.35);
-  stroke-width: 0.6;
-}
-
-.rimInner {
-  fill: none;
-  stroke: rgb(0 0 0 / 0.4);
-  stroke-width: 0.8;
 }

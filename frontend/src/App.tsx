@@ -46,7 +46,6 @@ export default function App() {
         <Link to="/film-rolls" className={styles.brand}>
           kokoroe
         </Link>
-        <span className={styles.tagline}>底片與器材履歷</span>
         {/*
           NavLink 會在網址符合時把 className 函式的 isActive 設為 true，並自動加上 aria-current="page"。
           /film-rolls/7 也算在「卷期」底下：NavLink 預設比對的是路徑前綴，不需要 end。
@@ -62,7 +61,7 @@ export default function App() {
             to="/crate"
             className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ''}`}
           >
-            唱片櫃
+            底片盒
           </NavLink>
           <NavLink
             to="/cameras"

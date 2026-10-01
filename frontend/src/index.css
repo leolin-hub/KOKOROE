@@ -18,7 +18,13 @@
   --color-bg: #141517;
   --color-surface: #1e2024;
   --color-surface-hover: #26292e;
+  /* 裝飾用的分隔線，刻意很淡 */
   --color-border: #2e3136;
+  /*
+   * 表單欄位的框線。欄位要「看得出是可以填的格子」，WCAG 要求非文字元素至少 3:1，
+   * 淡的 --color-border 只有 1.4:1，欄位看起來像淺淺的凹痕。
+   */
+  --color-border-strong: #6b6f76;
   --color-text: #f3efea;
   --color-text-muted: #9a968f;
   /*
@@ -27,16 +33,18 @@
    */
   --color-accent: #e0a96d;
   --color-accent-hover: #ebbf8c;
-  --color-danger: #e5534b;
+  /* 錯誤與刪除。亮度拉到放在淡紅底（刪除鈕 hover）上也有 4.5:1 */
+  --color-danger: #f07870;
 
   /*
    * 狀態色 —— 對應 FilmRollStatus 的四個值，避開重點色與片頭的色相。
    * 沖洗中用暗房安全燈的紅；已歸檔是「結束了」，用最安靜的灰。
+   * 標籤是 12px 的小字、底色是自己的 15% 淡色，四個顏色在卡片上都至少 4.5:1。
    */
   --color-status-loaded: #7fa3c8;
   --color-status-shooting: #9cc08a;
-  --color-status-developing: #d4695f;
-  --color-status-archived: #8e918f;
+  --color-status-developing: #e8857b;
+  --color-status-archived: #a0a3a1;
 
   /* 底片罐標籤的字型（main.tsx 載入）。只用在 SVG 底片罐上，介面文字仍用系統字型 */
   --font-canister: 'Archivo Variable', 'Arial Narrow', sans-serif;
@@ -104,7 +112,7 @@ textarea {
   font: inherit;
   color: inherit;
   background-color: var(--color-bg);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   padding: var(--space-2) var(--space-3);
 }

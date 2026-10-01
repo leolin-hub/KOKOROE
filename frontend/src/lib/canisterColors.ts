@@ -1,3 +1,5 @@
+import { toFilmStockKey } from './filmStockKey'
+
 /**
  * 底片罐標籤的配色。
  *
@@ -30,7 +32,8 @@ export const STOCK_PALETTES: Readonly<Record<string, CanisterPalette>> = {
   KodakGold200: { base: '#f2b62c', accent: '#a8321e', ink: '#2b1a0f', accentInk: '#fde9b8' },
   KodakUltraMax400: { base: '#2d5a94', accent: '#f0b429', ink: '#f4efe4', accentInk: '#1b2436' },
   KodakColorPlus200: { base: '#d9492e', accent: '#f2c230', ink: '#fff3e2', accentInk: '#3a1a10' },
-  KentmerePan200: { base: '#86a13b', accent: '#44703b', ink: '#f6f4e6', accentInk: '#f6f4e6' },
+  // 包裝上是白字配黃綠，綠色比包裝深一點，白字才讀得清楚（3.5:1）
+  KentmerePan200: { base: '#6f8a2e', accent: '#44703b', ink: '#f6f4e6', accentInk: '#f6f4e6' },
 }
 
 /** 第二層：品牌。key 一律小寫。 */
@@ -75,7 +78,8 @@ export function hashString(value: string): number {
  * 依底片款式決定罐子的配色：先查款式、再查品牌、都沒有就用雜湊挑一組。
  *
  * 【影響畫面】唱片櫃（/crate）每一卷底片罐的標籤顏色。由 `RollArtwork` 呼叫，
- *   傳進來的 `name` 已經用 `labelFilmName` 拿掉重複的品牌與 ISO（例如 `'Portra'`）。
+ *   傳進來的 `name` 已經用 `labelFilmName` 拿掉重複的品牌與 ISO（例如 `'Portra'`），
+ *   `brand` 也已經在 `RollArtwork` 去掉前後空白（只有空白的品牌會變成 `undefined`）。
  *
  * 【預期結果】
  *   canisterPalette('Kodak', 'Portra', 400)      → STOCK_PALETTES.KodakPortra400         （第一層）
@@ -95,7 +99,7 @@ export function hashString(value: string): number {
  * 0. 刪掉 `void` 三行與 `return FALLBACK_PALETTES[0]` 佔位。
  * 1. 第一層：`const stockKey = toFilmStockKey(brand, `${name} ${iso}`).toLowerCase()`，
  *    在 `Object.entries(STOCK_PALETTES)` 裡找 key 轉小寫後等於 `stockKey` 的那一筆；找到就回傳它的配色。
- *    （和你之前寫的 `findFilmStockImage` 是同一招。）
+ *    （和以前查照片對照表時同一招：key 兩邊都轉小寫再比。）
  * 2. 第二層：有品牌的話，`BRAND_PALETTES[brand.toLowerCase()]`；有值就回傳。
  * 3. 第三層：`FALLBACK_PALETTES[hashString(...) % FALLBACK_PALETTES.length]`。
  *    雜湊的輸入要包含什麼？（提示：只用 name 的話，不同品牌的同名底片會同色）
@@ -109,8 +113,12 @@ export function hashString(value: string): number {
  *   配色會跟著款式存在資料庫，這三層就只剩「目錄裡沒有」時的最後一層。
  */
 export function canisterPalette(brand: string | undefined, name: string, iso: number): CanisterPalette {
-  void brand
-  void name
-  void iso
-  return FALLBACK_PALETTES[0]
+  const stockKey = toFilmStockKey(brand, `${name} ${iso}`).toLowerCase()
+  const stockEntry = Object.entries(STOCK_PALETTES).find(([key]) => key.toLowerCase() === stockKey)
+  if (stockEntry) return stockEntry[1]
+  if (brand) {
+    const brandPalette = BRAND_PALETTES[brand.toLowerCase()]
+    if (brandPalette) return brandPalette
+  }
+  return FALLBACK_PALETTES[hashString(`${brand ?? ''} ${name} ${iso}`) % FALLBACK_PALETTES.length]
 }
