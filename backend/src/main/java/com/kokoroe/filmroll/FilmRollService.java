@@ -6,6 +6,7 @@ import com.kokoroe.common.dto.PageResponse;
 import com.kokoroe.filmroll.dto.CreateFilmRollRequest;
 import com.kokoroe.filmroll.dto.FilmRollResponse;
 import com.kokoroe.filmroll.dto.UpdateFilmRollRequest;
+import com.kokoroe.photo.PhotoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +29,7 @@ public class FilmRollService {
 
     private final FilmRollRepository filmRollRepository;
     private final CameraRepository cameraRepository;
+    private final PhotoService photoService;
 
     @Transactional
     public FilmRollResponse create(CreateFilmRollRequest request) {
@@ -68,7 +70,10 @@ public class FilmRollService {
     public void delete(Long id) {
         // 先查再刪，是為了讓「刪除不存在的資料」明確回 404，
         // 而不是靜默成功 —— 後者會讓前端誤以為刪掉了某筆其實不存在的資料。
-        filmRollRepository.delete(findOrThrow(id));
+        FilmRoll filmRoll = findOrThrow(id);
+        // 照片紀錄由資料庫 ON DELETE CASCADE 一起刪；儲存空間的檔案要另外排定清除
+        photoService.cleanUpFilesOfRoll(id);
+        filmRollRepository.delete(filmRoll);
     }
 
     /**

@@ -11,7 +11,7 @@
 ## 快速啟動
 
 ```bash
-# 1. 從專案根目錄啟動 PostgreSQL 16
+# 1. 從專案根目錄啟動 PostgreSQL 16 與 RustFS（照片的 S3 相容儲存）
 cd ..
 cp .env.example .env      # 首次執行才需要
 docker compose up -d
@@ -21,9 +21,10 @@ cd backend
 ./mvnw spring-boot:run    # Windows: .\mvnw.cmd spring-boot:run
 ```
 
-服務啟動於 `http://localhost:8080`。
+服務啟動於 `http://localhost:8080`。第一次啟動會自動在 RustFS 建立 `kokoroe-photos` bucket。
+RustFS 管理介面在 `http://localhost:9001`（帳密 `kokoroe` / `kokoroe-secret`），可以直接看上傳的檔案。
 
-執行測試（整合測試會自動起一個 Testcontainers 的 PostgreSQL 容器，需要 Docker 在運行）：
+執行測試（整合測試會自動起 Testcontainers 的 PostgreSQL 與 RustFS 容器，需要 Docker 在運行）：
 
 ```bash
 ./mvnw test
@@ -57,6 +58,37 @@ Base path：`/api/v1`
 | `DELETE` | `/api/v1/cameras/{id}` | — | `204` | `400` `404` `409`（還有卷期使用中） |
 
 相機列表預設 `size=100`、`sort=brand,asc&sort=model,asc`，前端下拉選單打一次就能拿到全部。
+
+### 照片（`/film-rolls/{id}/photos`、`/photos`）
+
+| Method | Path | Request | 成功 | 可能的錯誤 |
+|---|---|---|---|---|
+| `GET` | `/api/v1/film-rolls/{id}/photos` | — | `200` `PhotoResponse[]`（依格號排序，不分頁） | `400` `404`（卷期） |
+| `POST` | `/api/v1/film-rolls/{id}/photos` | `multipart/form-data`：`file`（JPEG）、`frameNumber`（選填） | `201` `PhotoResponse` + `Location` | `400` `404` `409`（該格已有照片） `413`（> 40 MB） `415` `503`（處理中的上傳已滿） |
+| `GET` | `/api/v1/photos/{id}` | — | `200` `PhotoResponse` | `400` `404` |
+| `GET` | `/api/v1/photos/{id}/{variant}` | `variant` = `thumb` / `web` / `original` | `200` `image/jpeg` | `400` `404` |
+| `DELETE` | `/api/v1/photos/{id}` | — | `204` | `400` `404` |
+
+- **一次傳一張**。只收 JPEG，以檔頭判斷（不看副檔名或 Content-Type）；超過 4000 萬像素拒絕。
+- **格號**：有給 `frameNumber`（0–99）就用；沒給就取檔名最後一組數字（`000123_07.jpg` → 7）；
+  再沒有就接在目前最大格號後面。同一卷同一格只能一張，要換先刪。
+- **三個版本**：`thumb` 長邊 480、`web` 長邊 2048（都依 EXIF 轉正、不帶 EXIF），`original` 原封不動。
+  圖檔由後端轉送，`Cache-Control: private, max-age=31536000, immutable`。
+- 刪除卷期會一併刪除它的照片紀錄與圖檔。
+
+```jsonc
+// PhotoResponse
+{
+  "id": 12,
+  "filmRollId": 7,
+  "frameNumber": 7,
+  "originalFilename": "000123_07.jpg",
+  "width": 3000,        // 依 EXIF 轉正後的原圖尺寸，前端用來算長寬比
+  "height": 2000,
+  "sizeBytes": 4812345,
+  "createdAt": "2026-10-02T04:58:27.314094Z"
+}
+```
 
 ### 查詢參數（`GET /api/v1/film-rolls`）
 
@@ -177,9 +209,10 @@ LOADED ──> SHOOTING ──> DEVELOPING ──> ARCHIVED
 | `type` | 狀態 | 意義 |
 |---|---|---|
 | `urn:kokoroe:problem:validation-failed` | 400 | 欄位驗證未通過 |
-| `urn:kokoroe:problem:business-rule-violated` | 400 / 409 | 跨欄位規則、狀態衝突、同名相機、相機使用中 |
-| `urn:kokoroe:problem:malformed-request` | 400 | JSON 格式或參數型別錯誤 |
+| `urn:kokoroe:problem:business-rule-violated` | 400 / 409 | 跨欄位規則、狀態衝突、同名相機、相機使用中、照片不合法、該格已有照片 |
+| `urn:kokoroe:problem:malformed-request` | 400 / 405 / 413 / 415 | JSON 或 multipart 格式錯誤、參數型別錯誤、方法或 Content-Type 不支援、檔案太大 |
 | `urn:kokoroe:problem:resource-not-found` | 404 | 查無資源 |
+| `urn:kokoroe:problem:service-busy` | 503 | 同時處理中的上傳已滿，稍後重試 |
 | `urn:kokoroe:problem:internal-error` | 500 | 非預期錯誤（細節僅入 log） |
 
 ---
@@ -207,7 +240,7 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 | 拆出 `Camera` 實體（`/api/v1/cameras`），V2 migration 把舊的 `camera_name` 去重搬進 `camera` 並回填 | ✅ 完成（前端表單改為相機下拉選單；V3 移除舊欄位 `camera_name`，沒連上相機的舊名稱補進備註） |
 | 相機管理頁（`/cameras` 列表、新增、編輯與刪除） | ✅ 完成 |
 | 拆出 `Lens` 實體 | ⏳ 未開始 |
-| 沖掃成果（掃描圖檔）管理 | ⏳ 未開始 |
+| 沖掃成果（掃描圖檔）管理 | 🚧 進行中：後端 API 完成（V4 `photo` 表、RustFS / R2、縮圖與網頁版）；前端上傳、印樣檢視與底片條動畫待做 |
 | 容器化與部署（CD） | ⏳ 未開始 |
 
 ### 前端進度

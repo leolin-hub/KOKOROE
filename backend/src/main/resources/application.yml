@@ -35,6 +35,24 @@ spring:
         # 上限，避免 ?size=999999 變成變相的全表撈取
         max-page-size: 100
 
+  servlet:
+    multipart:
+      # 一次上傳一張照片。沖印店的 JPEG 掃描檔通常在 10 MB 以內，40 MB 留了很大的餘裕；
+      # 整個請求再多 1 MB 給 multipart 的分隔線與其他欄位。
+      max-file-size: 40MB
+      max-request-size: 41MB
+
+kokoroe:
+  # 照片的物件儲存（S3 API）。預設值對應 docker-compose.yml 的 RustFS；
+  # 正式環境全部用環境變數覆寫成 Cloudflare R2 的值，並把 STORAGE_CREATE_BUCKET 設成 false。
+  storage:
+    endpoint: ${STORAGE_ENDPOINT:http://localhost:9000}
+    region: ${STORAGE_REGION:us-east-1}
+    bucket: ${STORAGE_BUCKET:kokoroe-photos}
+    access-key: ${STORAGE_ACCESS_KEY:kokoroe}
+    secret-key: ${STORAGE_SECRET_KEY:kokoroe-secret}
+    create-bucket: ${STORAGE_CREATE_BUCKET:true}
+
 server:
   port: 8080
   error:
