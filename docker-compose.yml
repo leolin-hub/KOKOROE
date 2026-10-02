@@ -10,8 +10,9 @@ services:
       # 讓容器初始化時就使用 UTC，避免本機時區影響 timestamp 行為
       TZ: UTC
       PGTZ: UTC
+    # 只綁 127.0.0.1：帳密是預設值，Docker 開的 port 還會繞過防火牆，不能讓其他機器連到
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - kokoroe-pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -22,6 +23,32 @@ services:
       retries: 10
       start_period: 10s
 
+  # 照片的物件儲存，S3 相容。正式環境換成 Cloudflare R2，後端程式碼不用改。
+  # 選 RustFS 而不是 MinIO：MinIO 從 2025 年起不再發布社群版 Docker image。
+  # 管理介面：http://localhost:9001（帳密同下方 access / secret key）
+  rustfs:
+    image: rustfs/rustfs:1.0.0
+    container_name: kokoroe-rustfs
+    restart: unless-stopped
+    environment:
+      RUSTFS_ACCESS_KEY: ${STORAGE_ACCESS_KEY:-kokoroe}
+      RUSTFS_SECRET_KEY: ${STORAGE_SECRET_KEY:-kokoroe-secret}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    # 只綁 127.0.0.1，理由同 postgres
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - kokoroe-rustfs:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
 volumes:
   kokoroe-pgdata:
     name: kokoroe-pgdata
+  kokoroe-rustfs:
+    name: kokoroe-rustfs

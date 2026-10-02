@@ -8,16 +8,26 @@ import com.kokoroe.camera.InvalidCameraException;
 import com.kokoroe.filmroll.FilmRollNotFoundException;
 import com.kokoroe.filmroll.IllegalStatusTransitionException;
 import com.kokoroe.filmroll.InvalidFilmRollException;
+import com.kokoroe.photo.DuplicateFrameException;
+import com.kokoroe.photo.InvalidPhotoException;
+import com.kokoroe.photo.PhotoNotFoundException;
+import com.kokoroe.photo.UploadBusyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.ErrorResponse;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.MultipartException;
 
 import java.net.URI;
 import java.time.Instant;
@@ -46,6 +56,7 @@ public class GlobalExceptionHandler {
     private static final URI TYPE_BUSINESS_RULE = URI.create("urn:kokoroe:problem:business-rule-violated");
     private static final URI TYPE_MALFORMED = URI.create("urn:kokoroe:problem:malformed-request");
     private static final URI TYPE_INTERNAL = URI.create("urn:kokoroe:problem:internal-error");
+    private static final URI TYPE_BUSY = URI.create("urn:kokoroe:problem:service-busy");
 
     /** Bean Validation 未通過：把每個欄位的錯誤攤平成清單，前端可直接對應到表單欄位。 */
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -62,13 +73,15 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
-    @ExceptionHandler({FilmRollNotFoundException.class, CameraNotFoundException.class})
+    @ExceptionHandler({FilmRollNotFoundException.class, CameraNotFoundException.class,
+            PhotoNotFoundException.class})
     public ProblemDetail handleNotFound(RuntimeException ex) {
         return build(HttpStatus.NOT_FOUND, "找不到資源", ex.getMessage(), TYPE_NOT_FOUND);
     }
 
-    /** 跨欄位的商業規則違反（例如日期順序顛倒）。 */
-    @ExceptionHandler({InvalidFilmRollException.class, InvalidCameraException.class})
+    /** 跨欄位的商業規則違反（例如日期順序顛倒），或上傳的檔案不是能收下的照片。 */
+    @ExceptionHandler({InvalidFilmRollException.class, InvalidCameraException.class,
+            InvalidPhotoException.class})
     public ProblemDetail handleBusinessRule(RuntimeException ex) {
         return build(HttpStatus.BAD_REQUEST, "商業規則驗證失敗", ex.getMessage(), TYPE_BUSINESS_RULE);
     }
@@ -79,9 +92,9 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.CONFLICT, "狀態衝突", ex.getMessage(), TYPE_BUSINESS_RULE);
     }
 
-    /** 與既有資料衝突 → 409：同名相機已存在、相機還有卷期在用、改片幅會讓卷期不相容。 */
+    /** 與既有資料衝突 → 409：同名相機已存在、相機還有卷期在用、改片幅會讓卷期不相容、這一格已有照片。 */
     @ExceptionHandler({DuplicateCameraException.class, CameraInUseException.class,
-            CameraFormatConflictException.class})
+            CameraFormatConflictException.class, DuplicateFrameException.class})
     public ProblemDetail handleResourceConflict(RuntimeException ex) {
         return build(HttpStatus.CONFLICT, "資源衝突", ex.getMessage(), TYPE_BUSINESS_RULE);
     }
@@ -123,15 +136,58 @@ public class GlobalExceptionHandler {
                 "參數 '%s' 的值不合法".formatted(ex.getName()), TYPE_MALFORMED);
     }
 
-    /** 兜底：任何未預期的例外。完整細節只留在 log，對外只給一句通用訊息。 */
-    @ExceptionHandler(Exception.class)
-    public ProblemDetail handleUnexpected(Exception ex) {
-        log.error("未預期的例外", ex);
-        return build(HttpStatus.INTERNAL_SERVER_ERROR, "伺服器內部錯誤",
-                "伺服器處理請求時發生非預期的錯誤，請稍後再試", TYPE_INTERNAL);
+    /** 上傳的檔案超過 {@code spring.servlet.multipart.max-file-size}。 */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ProblemDetail handleUploadTooLarge(MaxUploadSizeExceededException ex) {
+        return build(HttpStatus.CONTENT_TOO_LARGE, "檔案太大",
+                "檔案超過上傳大小上限", TYPE_MALFORMED);
     }
 
-    private static ProblemDetail build(HttpStatus status, String title, String detail, URI type) {
+    /** multipart 本身解析失敗（格式壞掉、連線中斷）。細節可能含伺服器路徑，不轉述。 */
+    @ExceptionHandler(MultipartException.class)
+    public ProblemDetail handleMultipart(MultipartException ex) {
+        log.debug("無法解析的 multipart 請求", ex);
+        return build(HttpStatus.BAD_REQUEST, "請求格式錯誤", "上傳的內容無法解析", TYPE_MALFORMED);
+    }
+
+    /** 伺服器暫時忙不過來 → 503：請求本身沒問題，稍後重試就好。 */
+    @ExceptionHandler(UploadBusyException.class)
+    public ProblemDetail handleBusy(UploadBusyException ex) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, "伺服器忙碌", ex.getMessage(), TYPE_BUSY);
+    }
+
+    /**
+     * 瀏覽器在回應寫到一半時斷線（例如捲動時取消還沒載完的縮圖）。
+     * 不是錯誤，連線已經斷了也沒有東西可以回，記 debug 就好；否則每次都會是一大段 error stack trace。
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public void handleClientGone(AsyncRequestNotUsableException ex) {
+        log.debug("client 已中斷連線", ex);
+    }
+
+    /**
+     * 兜底：任何未預期的例外。完整細節只留在 log，對外只給一句通用訊息。
+     *
+     * <p>例外：Spring MVC 自己的標準例外（405 方法不允許、415 不支援的 Content-Type、
+     * 缺少必填參數、找不到路徑…）都實作 {@link ErrorResponse}，本身就帶著正確的狀態碼與標頭
+     * （例如 405 必須附上 {@code Allow}）。這個兜底 handler 會蓋掉 Spring 對它們的預設處理，
+     * 不在這裡還原的話全都會變成 500。它們的 detail 是 Spring 寫好的固定句子，不含內部資訊，可以轉述。
+     */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ProblemDetail> handleUnexpected(Exception ex) {
+        if (ex instanceof ErrorResponse standard && standard.getStatusCode().is4xxClientError()) {
+            log.debug("Spring MVC 標準例外", ex);
+            return ResponseEntity.status(standard.getStatusCode())
+                    .headers(standard.getHeaders())
+                    .body(build(standard.getStatusCode(), "請求無法處理",
+                            standard.getBody().getDetail(), TYPE_MALFORMED));
+        }
+        log.error("未預期的例外", ex);
+        return ResponseEntity.internalServerError().body(build(HttpStatus.INTERNAL_SERVER_ERROR,
+                "伺服器內部錯誤", "伺服器處理請求時發生非預期的錯誤，請稍後再試", TYPE_INTERNAL));
+    }
+
+    private static ProblemDetail build(HttpStatusCode status, String title, String detail, URI type) {
         ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
         problem.setTitle(title);
         problem.setType(type);

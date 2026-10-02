@@ -28,7 +28,21 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<awssdk.version>2.55.10</awssdk.version>
+		<thumbnailator.version>0.4.21</thumbnailator.version>
 	</properties>
+	<dependencyManagement>
+		<dependencies>
+			<!-- AWS SDK v2 各模組版本必須一致，交給官方 BOM 統一管理 -->
+			<dependency>
+				<groupId>software.amazon.awssdk</groupId>
+				<artifactId>bom</artifactId>
+				<version>${awssdk.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
 	<dependencies>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -49,6 +63,27 @@
 		<dependency>
 			<groupId>org.flywaydb</groupId>
 			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+
+		<!--
+			照片儲存走 S3 API：本機是 RustFS，正式環境是 Cloudflare R2，只差設定。
+			只用同步 client，排除預設會一起拉進來的 Netty 非同步 HTTP client。
+		-->
+		<dependency>
+			<groupId>software.amazon.awssdk</groupId>
+			<artifactId>s3</artifactId>
+			<exclusions>
+				<exclusion>
+					<groupId>software.amazon.awssdk</groupId>
+					<artifactId>netty-nio-client</artifactId>
+				</exclusion>
+			</exclusions>
+		</dependency>
+		<!-- 產生縮圖與網頁版，會依 EXIF 方向自動轉正 -->
+		<dependency>
+			<groupId>net.coobird</groupId>
+			<artifactId>thumbnailator</artifactId>
+			<version>${thumbnailator.version}</version>
 		</dependency>
 
 		<dependency>

@@ -6,6 +6,7 @@ import com.kokoroe.camera.CameraRepository;
 import com.kokoroe.filmroll.dto.CreateFilmRollRequest;
 import com.kokoroe.filmroll.dto.FilmRollResponse;
 import com.kokoroe.filmroll.dto.UpdateFilmRollRequest;
+import com.kokoroe.photo.PhotoService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -44,6 +45,9 @@ class FilmRollServiceTest {
 
     @Mock
     private CameraRepository cameraRepository;
+
+    @Mock
+    private PhotoService photoService;
 
     @InjectMocks
     private FilmRollService filmRollService;
@@ -192,6 +196,19 @@ class FilmRollServiceTest {
                     .isInstanceOf(FilmRollNotFoundException.class);
 
             verify(filmRollRepository, never()).delete(any());
+            verify(photoService, never()).cleanUpFilesOfRoll(any());
+        }
+
+        @Test
+        @DisplayName("刪除卷期時要排定清除它的照片檔案，否則儲存空間會留下孤兒檔案")
+        void shouldCleanUpPhotoFilesWhenDeleting() {
+            FilmRoll roll = existingRoll(7L, FilmRollStatus.ARCHIVED);
+            when(filmRollRepository.findById(7L)).thenReturn(Optional.of(roll));
+
+            filmRollService.delete(7L);
+
+            verify(photoService).cleanUpFilesOfRoll(7L);
+            verify(filmRollRepository).delete(roll);
         }
     }
 
