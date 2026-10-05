@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { Link, useLocation, useParams, useSearchParams } from 'react-router'
 import { useFilmRoll } from '../hooks/useFilmRoll'
 import { usePhotos } from '../hooks/usePhotos'
-import { useDeletePhoto } from '../hooks/usePhotoMutations'
+import { usePhotoLightbox } from '../hooks/usePhotoLightbox'
 import { usePhotoUploadQueue } from '../hooks/usePhotoUploadQueue'
 import ContactSheet from '../components/ContactSheet'
 import PhotoLightbox from '../components/PhotoLightbox'
@@ -12,7 +12,6 @@ import ErrorBanner from '../components/ErrorBanner'
 import { ApiError } from '../api/problem'
 import { formatRollTitle } from '../lib/format'
 import { FORMAT_OPTIONS } from '../lib/constants'
-import type { PhotoResponse } from '../types/photo'
 import styles from './FilmRollPhotosPage.module.css'
 
 /**
@@ -47,7 +46,24 @@ function RollPhotos({ rollId }: { rollId: number }) {
   const { data: roll, isPending, error, refetch } = useFilmRoll(rollId)
   const photosQuery = usePhotos(rollId)
   const queue = usePhotoUploadQueue(rollId)
-  const deleteMutation = useDeletePhoto()
+  const photos = photosQuery.data ?? []
+  // 正在看哪一張放網址（?photo=12）：重新整理還在、可以分享
+  const openParam = Number(searchParams.get('photo'))
+  const lightbox = usePhotoLightbox({
+    rollId,
+    photos,
+    openId: Number.isInteger(openParam) && openParam > 0 ? openParam : null,
+    onOpenChange: (photoId) =>
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (photoId) next.set('photo', String(photoId))
+          else next.delete('photo')
+          return next
+        },
+        { replace: true, state: location.state },
+      ),
+  })
 
   useEffect(() => {
     if (!queue.isBusy) return
@@ -93,37 +109,9 @@ function RollPhotos({ rollId }: { rollId: number }) {
   }
 
   const title = formatRollTitle(roll.filmName, roll.brand)
-  const photos = photosQuery.data ?? []
-  const openId = Number(searchParams.get('photo'))
-  const openIndex = photos.findIndex((photo) => photo.id === openId)
   // 先取出來：下面的函式裡 TypeScript 會忘記 roll 已經確認過有值（同詳情頁的 baseRequest）
   const format = roll.format
   const formatLabel = FORMAT_OPTIONS.find((o) => o.value === format)?.label ?? format
-
-  /** 打開某一張；傳 null 關閉。 */
-  function showPhoto(photo: PhotoResponse | null) {
-    // 換張就清掉上一張的刪除錯誤。刪除還在進行時不清：清了「刪除中…」會消失，按鈕又能再按一次
-    if (!deleteMutation.isPending) deleteMutation.reset()
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev)
-        if (photo) next.set('photo', String(photo.id))
-        else next.delete('photo')
-        return next
-      },
-      { replace: true, state: location.state },
-    )
-  }
-
-  function handleDelete(photo: PhotoResponse) {
-    if (!window.confirm(`確定要刪除第 ${photo.frameNumber} 格嗎？原檔也會一起刪除，無法復原。`)) return
-    // 刪掉之後停在下一張；刪的是最後一張就往前一張；全刪光就關掉
-    const neighbor = photos[openIndex + 1] ?? photos[openIndex - 1] ?? null
-    deleteMutation.mutate(
-      { photoId: photo.id, rollId },
-      { onSuccess: () => showPhoto(neighbor) },
-    )
-  }
 
   function renderSheet() {
     if (photosQuery.isPending) {
@@ -146,7 +134,7 @@ function RollPhotos({ rollId }: { rollId: number }) {
         photos={photos}
         format={format}
         edgeLabel={title}
-        onOpen={showPhoto}
+        onOpen={lightbox.open}
       />
     )
   }
@@ -167,15 +155,7 @@ function RollPhotos({ rollId }: { rollId: number }) {
 
       {renderSheet()}
 
-      <PhotoLightbox
-        photos={photos}
-        index={openIndex >= 0 ? openIndex : null}
-        onNavigate={(index) => showPhoto(photos[index])}
-        onClose={() => showPhoto(null)}
-        onDelete={handleDelete}
-        isDeleting={deleteMutation.isPending}
-        deleteError={deleteMutation.error}
-      />
+      <PhotoLightbox {...lightbox.props} />
     </div>
   )
 }

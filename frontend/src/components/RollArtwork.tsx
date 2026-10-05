@@ -10,6 +10,8 @@ interface RollArtworkProps {
   roll: FilmRollResponse
   /** 焦點卷期：底片罐加上顆粒，滑鼠移上去會轉動。 */
   focused?: boolean
+  /** 底片條已經拉出來（底片盒的攤開動畫）：罐子藏起自己的片頭、不轉 */
+  unrolled?: boolean
 }
 
 /**
@@ -27,7 +29,7 @@ interface RollArtworkProps {
  *   dxCode          罐身背面的 DX 格子               lib/dxCode.ts          ← 你來寫
  * 那三支還沒寫的時候，罐子一樣畫得出來：配色都是同一組、片頭都是彩色負片、DX 格子全黑。
  */
-export default function RollArtwork({ roll, focused = false }: RollArtworkProps) {
+export default function RollArtwork({ roll, focused = false, unrolled = false }: RollArtworkProps) {
   // 後端與表單都沒有 trim 品牌，' Kodak ' 會原樣存進來。在這裡統一整理一次，後面的函式都拿到乾淨的值；
   // 只有空白的品牌當作沒有品牌（否則罐子上會印出一行空白）
   const brand = roll.brand?.trim() || undefined
@@ -44,6 +46,7 @@ export default function RollArtwork({ roll, focused = false }: RollArtworkProps)
         filmType={guessFilmType(brand, roll.filmName)}
         dx={dxCode(roll.iso)}
         focused={focused}
+        unrolled={unrolled}
       />
     </div>
   )

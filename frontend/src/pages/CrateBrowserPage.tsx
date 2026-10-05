@@ -1,11 +1,14 @@
 import styles from './CrateBrowserPage.module.css'
 import { type ReactNode, useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { useInfiniteFilmRolls } from '../hooks/useInfiniteFilmRolls'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { parseStatus, parseSort, DEFAULT_SORT } from '../lib/listParams'
 import { crateLinkState } from '../lib/backLink'
+import { usePhotos } from '../hooks/usePhotos'
+import { usePhotoLightbox } from '../hooks/usePhotoLightbox'
 import CrateItem from '../components/CrateItem'
+import PhotoLightbox from '../components/PhotoLightbox'
 import FilmRollFilters from '../components/FilmRollFilters'
 import ErrorBanner from '../components/ErrorBanner'
 import type { FilmRollStatus } from '../types/filmRoll'
@@ -76,6 +79,7 @@ import type { FilmRollStatus } from '../types/filmRoll'
  *    - `ArrowUp`   → `scrollToIndex(Math.max(focusedIndex - 1, 0))`
  *    - `Home` / `End` → 第一卷 / 最後一卷（已載入的最後一卷）
  *    - `Enter` → `navigate(`/film-rolls/${rolls[focusedIndex].id}`)`
+ *      （3c 起 Enter 改成拉出焦點卷期的底片條，詳情頁從底片條下方的連結進去；Esc 收回）
  *    - 處理了的按鍵要 `e.preventDefault()`，其他按鍵不要擋（不然 Tab 會失效）。
  *
  * ── D. 自動載入下一批 ──
@@ -136,7 +140,6 @@ export default function CrateBrowserPage() {
   const sort = parseSort(searchParams.get('sort'))
   const { data, isPending, isError, error, refetch, hasNextPage, isFetchingNextPage, fetchNextPage } = useInfiniteFilmRolls({ status, sort })
   const rolls = data ? data.pages.flatMap((p) => p.content) : []
-  const navigate = useNavigate()
   // 點進詳情頁時帶著目前的篩選條件，詳情頁的「← 回到唱片櫃」才能回到同一個篩選
   const linkState = crateLinkState(searchParams.toString())
 
@@ -144,12 +147,40 @@ export default function CrateBrowserPage() {
   const viewportRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLOListElement>(null)
 
+  // ── 攤開（3c）──
+  // 哪一卷的底片條拉出來了、底片條上點開了哪一張。都是暫時的狀態，不放網址：
+  // 重新整理後回到底片盒原本的樣子才自然
+  const [unrolledId, setUnrolledId] = useState<number | null>(null)
+  const [lightboxPhotoId, setLightboxPhotoId] = useState<number | null>(null)
+  // 焦點卷期的底片條元件一掛上就會抓照片清單（還沒拉出來就先抓，拉出來時才不用等），
+  // 這裡讀的是同一份快取，不會再打一次 API
+  const { data: unrolledPhotos } = usePhotos(unrolledId ?? 0)
+  const lightbox = usePhotoLightbox({
+    rollId: unrolledId ?? 0,
+    photos: unrolledPhotos ?? [],
+    openId: lightboxPhotoId,
+    onOpenChange: setLightboxPhotoId,
+  })
+
+  /**
+   * 收回底片條的唯一出口（Esc、換到別卷都走這裡）。
+   * 焦點原本可能在底片條或它的格子上，收起來（甚至整個元件卸載）之後焦點會掉到 <body>，
+   * 鍵盤就沒反應了；所以一律還給底片盒，↑ ↓ 才能繼續用。
+   */
+  function closeUnroll() {
+    setUnrolledId(null)
+    setLightboxPhotoId(null)
+    viewportRef.current?.focus({ preventScroll: true })
+  }
+
   function handleScroll() {
     const viewport = viewportRef.current
     const slotHeight = listRef.current?.firstElementChild?.clientHeight
     if (!viewport || !slotHeight) return
-    const index = Math.round(viewport.scrollTop / slotHeight)
-    setFocusedIndex(Math.min(index, rolls.length - 1))
+    const index = Math.min(Math.round(viewport.scrollTop / slotHeight), rolls.length - 1)
+    // 換到別卷時，原本拉出來的底片條收回去：一次只攤開焦點那一卷
+    if (index !== focusedIndex && unrolledId !== null) closeUnroll()
+    setFocusedIndex(index)
   }
 
   const reducedMotion = usePrefersReducedMotion()
@@ -160,6 +191,8 @@ export default function CrateBrowserPage() {
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLDivElement>) {
+    // 焦點在櫃子裡的按鈕或連結上（罐子、底片條的格子、資訊欄的連結）時，Enter 交給它們自己處理
+    if (e.target !== e.currentTarget && (e.key === 'Enter' || e.key === ' ')) return
     if (e.key === 'ArrowDown') {
       scrollToIndex(Math.min(focusedIndex + 1, rolls.length - 1))
       e.preventDefault()
@@ -173,8 +206,12 @@ export default function CrateBrowserPage() {
       scrollToIndex(rolls.length - 1)
       e.preventDefault()
     } else if (e.key === 'Enter') {
+      // Enter 拉出／收回焦點卷期的底片條（詳情頁改從底片條下方的連結進去）
       const roll = rolls[focusedIndex]
-      if (roll) navigate(`/film-rolls/${roll.id}`, { state: linkState })
+      if (roll) setUnrolledId((current) => (current === roll.id ? null : roll.id))
+      e.preventDefault()
+    } else if (e.key === 'Escape' && unrolledId !== null) {
+      closeUnroll()
       e.preventDefault()
     }
   }
@@ -195,6 +232,7 @@ export default function CrateBrowserPage() {
 
   function resetFocus() {
     setFocusedIndex(0)
+    setUnrolledId(null)
     viewportRef.current?.scrollTo({ top: 0 })
   }
 
@@ -227,20 +265,33 @@ export default function CrateBrowserPage() {
           <div
             ref={viewportRef}
             className={styles.viewport}
+            // 底片條用它找出底片盒的右緣，決定最多能拉出多長
+            data-crate-viewport=""
             tabIndex={0}
             onScroll={handleScroll}
             onKeyDown={handleKeyDown}
-            aria-label="底片盒，用上下方向鍵切換卷期"
+            aria-label="底片盒，用上下方向鍵切換卷期，Enter 拉出底片"
           >
             <ol ref={listRef} className={styles.list}>
               {rolls.map((roll, index) => (
-                <CrateItem key={roll.id} roll={roll} offset={index - focusedIndex} linkState={linkState} />
+                <CrateItem
+                  key={roll.id}
+                  roll={roll}
+                  offset={index - focusedIndex}
+                  linkState={linkState}
+                  unrolled={unrolledId === roll.id}
+                  onSelect={() => scrollToIndex(index)}
+                  onToggleUnroll={() => setUnrolledId((current) => (current === roll.id ? null : roll.id))}
+                  onOpenPhoto={lightbox.open}
+                  onCloseUnroll={closeUnroll}
+                />
               ))}
             </ol>
             {isFetchingNextPage && <p className={styles.loadingMore}>載入更多…</p>}
           </div>
         </div>
-        <p className={styles.hint}>↑ ↓ 切換 · Enter 查看詳情</p>
+        <p className={styles.hint}>↑ ↓ 切換 · Enter 拉出底片 · ← → 拉動 · Esc 收回</p>
+        <PhotoLightbox {...lightbox.props} />
       </>
     )
   } else {

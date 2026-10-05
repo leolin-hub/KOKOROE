@@ -50,3 +50,23 @@
   stroke: rgb(0 0 0 / 0.4);
   stroke-width: 0.8;
 }
+
+/*
+ * 片頭：底片條拉出來時立刻淡掉（拉出來的底片條前端有自己的片頭）；
+ * 收回時等底片條整條捲回罐子裡（--unroll-duration）才重新出現：
+ * 收回的動畫是「先慢後快」，最後一刻才全部進罐子，提早出現會疊在還沒捲完的底片上。
+ */
+.leader {
+  transition: opacity 0.15s ease var(--unroll-duration, 0s);
+}
+
+.leader[data-hidden] {
+  opacity: 0;
+  transition-delay: 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leader {
+    transition: none;
+  }
+}

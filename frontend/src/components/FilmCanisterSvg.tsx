@@ -149,16 +149,31 @@ interface FilmCanisterSvgProps {
   dx: DxCode
   /** 焦點卷期：加上顆粒，滑鼠移上去會轉動。非焦點的不加，捲動時少一點繪製成本。 */
   focused?: boolean
+  /**
+   * 底片條已經從出片口拉出來（底片盒的攤開動畫）：藏起罐子自己畫的片頭，不然會看到兩條片頭。
+   * 拉出來的時候罐子也不轉，免得一邊拉底片一邊轉、視覺上打架。
+   */
+  unrolled?: boolean
 }
 
-export default function FilmCanisterSvg({ brand, name, iso, format, palette, filmType, dx, focused = false }: FilmCanisterSvgProps) {
+export default function FilmCanisterSvg({
+  brand,
+  name,
+  iso,
+  format,
+  palette,
+  filmType,
+  dx,
+  focused = false,
+  unrolled = false,
+}: FilmCanisterSvgProps) {
   const reactId = useId()
   const labelId = `canister-label-${reactId}`
   const usesRef = useRef<(SVGUseElement | null)[]>([])
   const offsetRef = useRef(0)
   const [hovering, setHovering] = useState(false)
   const reducedMotion = usePrefersReducedMotion()
-  const spinning = focused && hovering && !reducedMotion
+  const spinning = focused && hovering && !reducedMotion && !unrolled
 
   useEffect(() => {
     if (!spinning) return
@@ -270,12 +285,14 @@ export default function FilmCanisterSvg({ brand, name, iso, format, palette, fil
       <ellipse className={styles.ground} cx={100} cy={236} rx={66} ry={10} filter="url(#canister-blur)" />
 
       {/* 片頭：片基顏色依底片種類，齒孔是鏤空的（填背景色） */}
-      <path d={LEADER_PATH} fill={print.base} />
-      <path d={LEADER_PATH} fill="url(#canister-leader-sheen)" />
-      {LEADER_TOP_HOLES.map((x) => (
-        <rect key={x} className={styles.hole} x={x} y={81} width={7.6} height={10} rx={1.2} />
-      ))}
-      <rect className={styles.hole} x={147} y={189} width={7.6} height={10} rx={1.2} />
+      <g className={styles.leader} data-hidden={unrolled || undefined}>
+        <path d={LEADER_PATH} fill={print.base} />
+        <path d={LEADER_PATH} fill="url(#canister-leader-sheen)" />
+        {LEADER_TOP_HOLES.map((x) => (
+          <rect key={x} className={styles.hole} x={x} y={81} width={7.6} height={10} rx={1.2} />
+        ))}
+        <rect className={styles.hole} x={147} y={189} width={7.6} height={10} rx={1.2} />
+      </g>
 
       {/* 罐身：標籤直條 + 光影 + 顆粒 */}
       <g clipPath="url(#canister-body)">
