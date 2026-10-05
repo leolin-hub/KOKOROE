@@ -1,0 +1,156 @@
+.uploader {
+  /* 給絕對定位的隱藏 input 一個定位基準，不然它會定位到頁面某處，取得焦點時頁面可能跳動 */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* 視覺上隱藏、但鍵盤與螢幕閱讀器仍找得到（不能用 display: none） */
+.input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 鍵盤 Tab 到隱藏的 input 時，把焦點框畫在看得到的 label 上 */
+.input:focus-visible + .dropZone {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.dropZone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-6) var(--space-4);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.dropZone:hover {
+  border-color: var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+/* 拖著檔案進來是比滑過更明確的意圖：實線、底色更深，告訴使用者「放開就會上傳」 */
+.dropZone[data-dragging] {
+  border-style: solid;
+  border-color: var(--color-accent);
+  background-color: color-mix(in srgb, var(--color-accent) 14%, transparent);
+}
+
+.dropTitle {
+  font-weight: 500;
+}
+
+.dropHint {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.queue {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.queueHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.summary {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+/* 檔案很多時不要把頁面撐得很長，清單自己捲動 */
+.list {
+  display: flex;
+  flex-direction: column;
+  max-height: 14rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+/* 檔名吃掉剩餘空間並截斷；大小與狀態靠右 */
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.8125rem;
+}
+
+.row + .row {
+  border-top: 1px solid var(--color-border);
+}
+
+.fileName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+}
+
+.fileSize {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.status {
+  color: var(--color-text-muted);
+}
+
+.row[data-status='uploading'] .status {
+  color: var(--color-accent);
+}
+
+.row[data-status='done'] .status {
+  color: var(--color-status-shooting);
+}
+
+.row[data-status='failed'] .status {
+  color: var(--color-danger);
+}
+
+.textButton {
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-accent);
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.textButton:hover {
+  color: var(--color-accent-hover);
+  text-decoration: underline;
+}
+
+.textButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropZone {
+    transition: none;
+  }
+}

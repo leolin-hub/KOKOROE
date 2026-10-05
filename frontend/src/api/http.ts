@@ -26,7 +26,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!headers.has('Accept')){
     headers.set('Accept', 'application/json, application/problem+json')
   }
-  if (init?.body && !headers.has('Content-Type')){
+  // FormData（上傳檔案）不能自己設 Content-Type：
+  // 瀏覽器要自動填上 `multipart/form-data; boundary=...`，手動設了就少了 boundary，後端解析不了。
+  if (init?.body && !(init.body instanceof FormData) && !headers.has('Content-Type')){
     headers.set('Content-Type', 'application/json')
   }
 
@@ -92,7 +94,22 @@ export const http = {
   put: <T>(path: string, body: unknown): Promise<T> =>
     request<T>(path, { method: 'PUT', body: JSON.stringify(body) }),
 
+  /**
+   * 送出 multipart/form-data（上傳檔案）。body 原封不動交給 fetch，不轉 JSON。
+   * `signal` 用來中途取消（逾時、使用者離開頁面）。
+   */
+  postForm: <T>(path: string, form: FormData, signal?: AbortSignal): Promise<T> =>
+    request<T>(path, { method: 'POST', body: form, signal }),
+
   delete: (path: string): Promise<void> => request<void>(path, { method: 'DELETE' }),
+}
+
+/**
+ * 組出完整的 API 網址，給不經過 fetch、而是交給瀏覽器自己載入的地方用，
+ * 例如 `<img src>` 與下載連結。和 `request` 共用同一個 BASE_URL。
+ */
+export function apiUrl(path: string): string {
+  return `${BASE_URL}${path}`
 }
 
 /**

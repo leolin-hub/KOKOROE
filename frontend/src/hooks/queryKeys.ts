@@ -69,3 +69,15 @@ export const cameraKeys = {
   details: () => [...cameraKeys.all, 'detail'] as const,
   detail: (id: number) => [...cameraKeys.details(), id] as const,
 }
+
+/**
+ * 照片的 query key。照片永遠以「某一卷的全部照片」為單位查詢，所以只有 byRoll 一層。
+ *
+ * 刻意不放在 `filmRollKeys.detail(id)` 底下：推進卷期狀態時會失效 `detail(id)`，
+ * 放在底下的話，每推進一次狀態就會把整卷照片清單一起重抓，白費一次請求。
+ * 代價是刪除卷期時要記得另外清掉這裡（見 `useDeleteFilmRoll`）。
+ */
+export const photoKeys = {
+  all: ['photos'] as const,
+  byRoll: (rollId: number) => [...photoKeys.all, 'roll', rollId] as const,
+}

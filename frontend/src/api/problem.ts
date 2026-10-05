@@ -11,6 +11,7 @@ export type ProblemType =
   | 'urn:kokoroe:problem:business-rule-violated'
   | 'urn:kokoroe:problem:malformed-request'
   | 'urn:kokoroe:problem:resource-not-found'
+  | 'urn:kokoroe:problem:service-busy'
   | 'urn:kokoroe:problem:internal-error'
 
 /** 驗證失敗時 `errors` 陣列的單一元素，可直接對應到表單欄位。 */
