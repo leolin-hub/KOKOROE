@@ -55,6 +55,9 @@
   --film-hole: #3a3a3c;
   --film-edge-ink: #c9b48f;
   --paper: #e6e0d5;
+  /* 漏光：底片從出片口拉出來時透進去的暖光。只寫 RGB 三個數字，用的地方自己加透明度 */
+  --light-leak-warm: 255 132 48;
+  --light-leak-red: 214 52 38;
 
   /* 底片罐標籤的字型（main.tsx 載入）。只用在 SVG 底片罐上，介面文字仍用系統字型 */
   --font-canister: 'Archivo Variable', 'Arial Narrow', sans-serif;

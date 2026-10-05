@@ -1,0 +1,281 @@
+/*
+ * 從底片罐拉出來的底片條。
+ *
+ * 尺寸全部從底片罐的寬度 --art-w（CrateItem 設定）推出來，罐子變大變小底片條跟著縮放：
+ *   出片口在罐子圖寬度的 60.7%、高度的一半（FilmCanisterSvg 的 viewBox 裡遮光絨 x = 145）
+ *   底片條高 = 罐子圖高（寬 × 1.097）× 遮光絨占的比例 0.619 ≈ 罐寬 × 0.679
+ * 底片本身照 135 的真實比例：片寬 35mm、畫面高 24mm、一格的間距 38mm、每格上下各 8 個片孔。
+ *   畫面高 = 條高 × 24/35 = 0.686；上下片邊各 0.157；一格寬 = 畫面高 × 38/24 = 條高 × 1.086
+ */
+
+.root {
+  --film-hairline: inset 0 1px 0 rgb(255 255 255 / 0.1), inset 0 -1px 0 rgb(255 255 255 / 0.06);
+  --strip-h: calc(var(--art-w) * 0.679);
+  --cell-w: calc(var(--strip-h) * 1.086);
+  --edge: calc(var(--strip-h) * 0.157);
+
+  position: absolute;
+  left: calc(var(--art-w) * 0.607);
+  /*
+   * 遮光絨的中心在罐子圖高度的 48.7%（viewBox y 72～212 的中點 142），比正中間高一點點：
+   * (50% − 48.7%) × 圖高（罐寬 × 1.097）≈ 罐寬 × 0.0146
+   */
+  top: calc(50% - var(--art-w) * 0.0146);
+  z-index: 2;
+  /* 根元素本身不擋滑鼠，只有打開時的底片條與資訊欄可以點 */
+  pointer-events: none;
+}
+
+/*
+ * 漏光：釘在出片口的暖色光暈，用 screen 疊加，只會讓暗處變亮。
+ * 每個橢圓的「中心位置 ± 半徑」都要落在 0～100% 之內：超出的話光暈會被這個方框切掉，看到一條直直的邊。
+ */
+.leak {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 30rem;
+  height: 18rem;
+  transform: translate(-40%, -50%);
+  background:
+    radial-gradient(ellipse 36% 42% at 40% 50%, rgb(var(--light-leak-warm) / 0.55), transparent 70%),
+    radial-gradient(ellipse 22% 26% at 48% 30%, rgb(var(--light-leak-red) / 0.35), transparent 70%);
+  /* 再用遮罩把方框四周淡掉：不管漸層怎麼調，都不會露出方框的邊 */
+  mask-image: radial-gradient(closest-side, #000 40%, transparent 100%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity calc(var(--unroll-duration) * 0.6) ease;
+}
+
+/* 片頭剛離開出片口時光最強，底片停下來後慢慢穩定成淡淡的光暈 */
+.root[data-open] .leak {
+  opacity: 0.55;
+  animation: leak-flare calc(var(--unroll-duration) * 1.2) ease-out both;
+}
+
+@keyframes leak-flare {
+  0% {
+    opacity: 0;
+  }
+
+  25% {
+    opacity: 0.95;
+  }
+
+  100% {
+    opacity: 0.55;
+  }
+}
+
+/* 觀景窗：左緣貼著出片口，寬度由 JS 量好設定 */
+.window {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: var(--strip-h);
+  /*
+   * clip 而不是 hidden：hidden 的方塊仍然能被「捲動」，Tab 到觀景窗外的格子時瀏覽器會自己去捲它，
+   * 和我們用 transform 控制的位置打架。clip 完全不能捲，位置只由 transform 決定
+   */
+  overflow: clip;
+  transform: translateY(-50%);
+  cursor: grab;
+  /* 直向的觸控滑動留給底片盒捲動；橫向的拖曳由我們接手 */
+  touch-action: pan-y;
+  /*
+   * 拖曳時不要選取文字：按在片邊上拖出底片盒的上下緣，瀏覽器會開始選取頁面文字，
+   * 選取範圍超出捲動區時還會自動捲動底片盒 —— 結果換到別卷，底片條被收回
+   */
+  user-select: none;
+}
+
+.root[data-open] .window {
+  pointer-events: auto;
+}
+
+.window:active {
+  cursor: grabbing;
+}
+
+/* 焦點框畫在內側：畫在外側會被底片盒的邊裁掉、也會壓到罐子 */
+.window:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.track {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  /* DOM 是「片頭、第 1 格、第 2 格…」，反過來排：片頭在最右邊，Tab 順序仍從第 1 格開始 */
+  flex-direction: row-reverse;
+  height: 100%;
+  will-change: transform;
+}
+
+/* 一格：黑色片基、上下兩排片孔（每格 8 個），中間是畫面 */
+.cell {
+  --hole-row: linear-gradient(to right, var(--film-hole) 0 55%, transparent 55%);
+
+  position: relative;
+  flex: none;
+  width: var(--cell-w);
+  height: 100%;
+  padding: var(--edge) calc(var(--strip-h) * 0.0285);
+  background-color: var(--film-base);
+  background-image: var(--hole-row), var(--hole-row);
+  background-size: calc(100% / 8) calc(var(--strip-h) * 0.07);
+  background-repeat: repeat-x;
+  background-position:
+    0 calc(var(--strip-h) * 0.04),
+    0 calc(100% - var(--strip-h) * 0.04);
+  /* 片基和頁面背景幾乎一樣黑，上下各描一條極淡的亮線，底片的輪廓才看得出來 */
+  box-shadow: var(--film-hairline);
+}
+
+.frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background-color: var(--film-frame);
+  cursor: zoom-in;
+}
+
+.frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  /* 拖曳底片時不要變成「拖曳圖片」 */
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.frame:hover img {
+  filter: brightness(1.12);
+}
+
+.frame:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* 還沒有照片時：沒曝光的空白底片 */
+.blank {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(160deg, #1b1916, var(--film-frame));
+}
+
+/* 片邊格號，壓在下排片孔上，墊一塊片基色才讀得到 */
+.edgeNumber {
+  position: absolute;
+  left: 8%;
+  bottom: calc(var(--strip-h) * 0.025);
+  padding: 0 0.2em;
+  background-color: var(--film-base);
+  font-family: var(--font-mono);
+  font-size: max(0.5625rem, calc(var(--strip-h) * 0.075));
+  font-weight: 600;
+  line-height: 1;
+  color: var(--film-edge-ink);
+  white-space: nowrap;
+}
+
+.edgeNumberA {
+  font-size: 0.8em;
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+/* 片頭：底片最外面那段斜切的尾巴 */
+.leader {
+  flex: none;
+  width: calc(var(--cell-w) * 0.8);
+  height: 100%;
+  background-color: var(--film-base);
+  box-shadow: var(--film-hairline);
+  clip-path: polygon(0 0, 55% 0, 100% 32%, 100% 68%, 55% 100%, 0 100%);
+}
+
+/*
+ * 片邊樣式的資訊欄：在底片條下方，等底片拉出來（--unroll-duration）之後才浮現；
+ * 收起時立刻消失，不等底片捲回去。
+ */
+.panel {
+  position: absolute;
+  left: 0;
+  top: calc(var(--strip-h) / 2 + var(--space-2));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+  width: max-content;
+  /* --avail：從出片口到底片盒右緣的寬度（UnrolledFilm 量好設定），手機上才不會超出畫面 */
+  max-width: min(36rem, var(--avail, 80vw));
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: var(--film-edge-ink);
+  opacity: 0;
+  transform: translateY(0.25rem);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.root[data-open] .panel {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  transition-duration: 0.3s;
+  /* 底片條的曲線是先快後慢，大約一半的時間就幾乎停了；等滿整段反而有一段空白 */
+  transition-delay: calc(var(--unroll-duration) * 0.55);
+}
+
+.panelText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.panelText strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.panelLinks {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.panelLinks a {
+  color: var(--color-accent);
+}
+
+.panelLinks a:hover {
+  color: var(--color-accent-hover);
+}
+
+/* 手機上資訊欄很窄，規格折行顯示，不要被 … 截掉 */
+@media (max-width: 600px) {
+  .panelText {
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leak,
+  .panel,
+  .root[data-open] .leak,
+  .root[data-open] .panel {
+    transition: none;
+    animation: none;
+  }
+}

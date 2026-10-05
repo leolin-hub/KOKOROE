@@ -28,8 +28,15 @@
  * 靠罐子的落影和焦點放大區分前後，不需要一張卡片把它框起來。
  */
 .record {
+  /*
+   * 底片罐的寬度。固定寬度而不是 minmax：拉出來的底片條（UnrolledFilm）用它算出片口的位置與底片條的高度，
+   * 罐子實際寬度和它不一致的話，底片會從罐身中間或空中冒出來。
+   */
+  --art-w: 11rem;
+
+  position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 11rem) minmax(0, 1fr);
+  grid-template-columns: var(--art-w) minmax(0, 1fr);
   align-items: center;
   gap: var(--space-6);
   width: min(100%, 34rem);
@@ -54,12 +61,18 @@
   transform: scale(1.04);
 }
 
-.artworkLink {
+/* 罐子是按鈕，把瀏覽器預設的按鈕樣式全部拿掉，只留罐子本身 */
+.artworkButton {
   display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
   border-radius: var(--radius-sm);
+  background: none;
+  cursor: pointer;
 }
 
-.artworkLink:focus-visible {
+.artworkButton:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 4px;
 }
@@ -69,6 +82,13 @@
   flex-direction: column;
   gap: var(--space-2);
   min-width: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* 底片條拉出來時蓋住右邊的文字區：標題、規格、連結都淡掉，改由底片條下方的片邊資訊欄顯示 */
+.record[data-unrolled] .info {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .title {
@@ -112,7 +132,7 @@
 
 @media (max-width: 600px) {
   .record {
-    grid-template-columns: minmax(0, 8rem) minmax(0, 1fr);
+    --art-w: 8rem;
     gap: var(--space-4);
   }
 
@@ -124,6 +144,7 @@
 /* 使用者要求減少動態：不傾斜、不縮放、不做過場，只保留透明度區分焦點 */
 @media (prefers-reduced-motion: reduce) {
   .record,
+  .info,
   .meta,
   .details {
     transition: none;

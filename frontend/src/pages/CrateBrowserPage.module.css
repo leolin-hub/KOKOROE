@@ -33,6 +33,8 @@
   position: relative;
   height: var(--crate-viewport-height);
   overflow-y: auto;
+  /* 拉出來的底片條與漏光光暈可能超出右緣；裁掉，不讓櫃子多出橫向捲動 */
+  overflow-x: hidden;
   overscroll-behavior: contain;
   scroll-snap-type: y mandatory;
   /*
