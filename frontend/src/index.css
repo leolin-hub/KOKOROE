@@ -46,6 +46,16 @@
   --color-status-developing: #e8857b;
   --color-status-archived: #a0a3a1;
 
+  /*
+   * 底片與相紙 —— 印樣、詳情頁的照片條、放大檢視共用，之後的底片條攤開動畫也會用到。
+   * 曬印樣時片基透光，所以在相紙上是黑的；片邊字是工廠預先曝光的，印出來是淺色。
+   */
+  --film-base: #0d0d0e;
+  --film-frame: #050505;
+  --film-hole: #3a3a3c;
+  --film-edge-ink: #c9b48f;
+  --paper: #e6e0d5;
+
   /* 底片罐標籤的字型（main.tsx 載入）。只用在 SVG 底片罐上，介面文字仍用系統字型 */
   --font-canister: 'Archivo Variable', 'Arial Narrow', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { UseMutationResult } from '@tanstack/react-query'
 import { createFilmRoll, deleteFilmRoll, updateFilmRoll } from '../api/filmRolls'
-import { filmRollKeys } from './queryKeys'
+import { filmRollKeys, photoKeys } from './queryKeys'
 import type {
   CreateFilmRollRequest,
   FilmRollResponse,
@@ -165,6 +165,8 @@ export function useDeleteFilmRoll(): UseMutationResult<void, Error, number> {
     mutationFn: deleteFilmRoll,
     onSuccess: (_data, id) => {
       queryClient.removeQueries({ queryKey: filmRollKeys.detail(id) })
+      // 後端刪卷期時連照片一起刪了；照片的 key 不在 detail(id) 底下，要另外清
+      queryClient.removeQueries({ queryKey: photoKeys.byRoll(id) })
       queryClient.invalidateQueries({ queryKey: filmRollKeys.lists() })
     },
   })

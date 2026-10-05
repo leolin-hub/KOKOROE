@@ -1,0 +1,48 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.back {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  align-self: flex-start;
+}
+
+.back:hover {
+  color: var(--color-accent);
+}
+
+.message {
+  margin: 0;
+  padding: var(--space-8) 0;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.empty {
+  margin: 0;
+  padding: var(--space-8) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  color: var(--color-text-muted);
+  text-align: center;
+}

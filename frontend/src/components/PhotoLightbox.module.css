@@ -1,0 +1,195 @@
+/*
+ * dialog 撐滿整個視窗、本身透明；背後的暗幕交給 ::backdrop。
+ * 上面是照片的舞台（吃掉剩下的高度），下面是資訊列（高度看內容，窄螢幕會折成兩行）。
+ */
+.dialog {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: var(--space-4);
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+}
+
+/* 只在打開時才用 flex，否則會蓋掉 dialog 關閉時的 display: none */
+.dialog[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.dialog::backdrop {
+  background-color: rgb(8 8 9 / 0.94);
+}
+
+/*
+ * lightbox 開著時鎖住後面頁面的捲動：showModal 會讓後面點不到，但滾輪與觸控捲動仍會捲動它，
+ * 關掉時畫面就停在別的地方了。
+ */
+:global(body:has(dialog[open])) {
+  overflow: hidden;
+}
+
+/*
+ * 照片的舞台：flex: 1 + min-height: 0 讓它剛好填滿資訊列以外的高度。
+ * container-type: size 讓裡面的照片框可以用 cqw / cqh（舞台的寬高）計算尺寸，
+ * 不必猜資訊列有多高 —— 窄螢幕折行、出現錯誤訊息時都會自動讓出空間。
+ */
+.stage {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  width: 100%;
+  min-height: 0;
+  container-type: size;
+}
+
+/*
+ * 照片框：依照片的長寬比，在舞台的寬與高兩個上限裡取能放下的最大尺寸。
+ * 縮圖放在 ::before 模糊墊底，網頁版載完蓋上去。
+ */
+.frame {
+  position: relative;
+  width: min(100cqw, 100cqh * var(--ratio));
+  aspect-ratio: var(--ratio);
+  overflow: hidden;
+  background-color: var(--film-frame);
+  isolation: isolate;
+}
+
+.frame::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: var(--thumb);
+  background-size: cover;
+  background-position: center;
+  content: '';
+  filter: blur(14px);
+  /* 模糊會讓邊緣變透明，放大一點把透明的邊推到框外 */
+  transform: scale(1.06);
+}
+
+.image {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .image {
+    animation: fade-in 0.15s ease-out;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  width: min(100%, 64rem);
+}
+
+.caption {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.frameLabel {
+  font-weight: 600;
+}
+
+.frameNumber {
+  font-family: var(--font-mono);
+}
+
+.meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.navButton {
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font-size: 1rem;
+}
+
+.navButton:hover:not([aria-disabled='true']) {
+  border-color: var(--color-text);
+}
+
+.navButton[aria-disabled='true'] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.textAction {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.textAction:hover {
+  color: var(--color-accent);
+}
+
+/* 刪除鈕前後用分隔線與間距隔開：緊貼著關閉鈕的話，手機上誤觸刪除的代價太高 */
+.divider {
+  width: 1px;
+  height: 1.5rem;
+  margin: 0 var(--space-1);
+  background-color: var(--color-border-strong);
+}
+
+.deleteButton {
+  margin-right: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-danger);
+  font-size: 0.875rem;
+}
+
+.deleteButton:hover:not(:disabled) {
+  border-color: var(--color-danger);
+}
+
+.navButton:focus-visible,
+.textAction:focus-visible,
+.deleteButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.error {
+  width: min(100%, 64rem);
+}

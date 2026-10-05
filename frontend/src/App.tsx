@@ -3,6 +3,7 @@ import FilmRollsPage from './pages/FilmRollsPage'
 import FilmRollDetailPage from './pages/FilmRollDetailPage'
 import FilmRollCreatePage from './pages/FilmRollCreatePage'
 import FilmRollEditPage from './pages/FilmRollEditPage'
+import FilmRollPhotosPage from './pages/FilmRollPhotosPage'
 import CameraListPage from './pages/CameraListPage'
 import CameraCreatePage from './pages/CameraCreatePage'
 import CameraEditPage from './pages/CameraEditPage'
@@ -20,6 +21,7 @@ import styles from './App.module.css'
  *   /film-rolls/new        → 新增
  *   /film-rolls/:id        → 詳情
  *   /film-rolls/:id/edit   → 編輯
+ *   /film-rolls/:id/photos → 印樣（照片上傳與瀏覽；?photo=12 是放大檢視那一張）
  *   /crate                 → 舊網址，導向 /film-rolls?view=crate（保留原本的篩選）
  *   /cameras               → 相機列表
  *   /cameras/new           → 新增相機
@@ -73,6 +75,7 @@ export default function App() {
           <Route path="/film-rolls/new" element={<FilmRollCreatePage />} />
           <Route path="/film-rolls/:id" element={<FilmRollDetailPage />} />
           <Route path="/film-rolls/:id/edit" element={<FilmRollEditPage />} />
+          <Route path="/film-rolls/:id/photos" element={<FilmRollPhotosPage />} />
           <Route path="/crate" element={<LegacyCrateRedirect />} />
           <Route path="/cameras" element={<CameraListPage />} />
           <Route path="/cameras/new" element={<CameraCreatePage />} />

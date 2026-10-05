@@ -5,6 +5,7 @@ import { useFilmRoll } from '../hooks/useFilmRoll'
 import { useDeleteFilmRoll, useUpdateFilmRoll } from '../hooks/useFilmRollMutations'
 import StatusBadge from '../components/StatusBadge'
 import ErrorBanner from '../components/ErrorBanner'
+import RollPhotosPreview from '../components/RollPhotosPreview'
 import { ApiError } from '../api/problem'
 import {
   EMPTY_PLACEHOLDER,
@@ -26,6 +27,7 @@ import styles from './FilmRollDetailPage.module.css'
  *   ← 回到列表（從唱片櫃進來時是「← 回到唱片櫃」，見 `lib/backLink.ts`）
  *   標題（Kodak Portra 400）＋ 狀態 badge
  *   欄位清單：ISO、規格、增減感、裝片日期、拍完日期、相機、鏡頭、備註
+ *   照片：前六張縮圖 ＋ 去印樣頁的連結（`RollPhotosPreview`）
  *   推進狀態按鈕（例如「推進到：沖洗中」）＋ 編輯連結
  *   刪除按鈕（與上面用分隔線隔開）
  *   建立時間 / 最後更新時間
@@ -141,6 +143,8 @@ export default function FilmRollDetailPage() {
           </Fragment>
         ))}
       </dl>
+
+      <RollPhotosPreview rollId={rollId} linkState={location.state} />
 
       {updateMutation.error && <ErrorBanner error={updateMutation.error} />}
       <div className={styles.actions}>
