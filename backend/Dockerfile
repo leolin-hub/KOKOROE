@@ -4,7 +4,7 @@
 # 正式環境由 .github/workflows/deploy.yml 建成 arm64（Oracle Cloud 的 Ampere VM），推到 GHCR。
 
 # ---- 建置階段 ----
-FROM eclipse-temurin:21-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /workspace
 
 # 先只複製 Maven 設定並下載依賴：pom.xml 沒變時這一層會被快取，改程式碼不用重新下載整個 .m2。
@@ -21,7 +21,7 @@ RUN ./mvnw --batch-mode --no-transfer-progress package -DskipTests \
  && java -Djarmode=tools -jar app.jar extract --layers --launcher --destination extracted
 
 # ---- 執行階段 ----
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 
 # 不用 root 跑：就算應用程式被打穿，攻擊者在容器裡也只是一般使用者。
 RUN groupadd --system --gid 10001 kokoroe \
