@@ -8,7 +8,7 @@
 # ---- 建置階段 ----
 # 靜態檔與 CPU 架構無關：--platform=$BUILDPLATFORM 讓這一階段在建置機的原生架構上跑，
 # 建 arm64 image 時不用經過 QEMU 模擬來跑 npm，快很多。
-FROM --platform=$BUILDPLATFORM node:24-alpine AS build
+FROM --platform=$BUILDPLATFORM node:26-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
