@@ -1,6 +1,6 @@
 version: 2
 
-# 這個專案跑在相當新的版本上(Spring Boot 4.0.x、Vite 8、React 19),
+# 這個專案跑在相當新的版本上(Spring Boot 4、Vite 8、React 19),
 # 修補更新的節奏會比成熟版本快,值得讓 Dependabot 幫忙盯。
 #
 # 全部設為 weekly 而非 daily:每天一批 PR 的下場就是學會無視它們。
@@ -35,7 +35,22 @@ updates:
         patterns: ['*']
         update-types: [minor, patch]
 
-  # workflow 裡釘的 actions/checkout@v4 之類也會過期。
+  # Dockerfile 的 base image（eclipse-temurin、node、caddy）。
+  # 用的都是 21-jre、2-alpine 這種浮動 tag，每次建置本來就會拉到最新的修補版；
+  # 這裡主要是在出新的 major（例如 Node 26 LTS）時發 PR 提醒，所以忽略 minor/patch。
+  - package-ecosystem: docker
+    directories: [/backend, /frontend]
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore
+      include: scope
+    ignore:
+      - dependency-name: '*'
+        update-types: [version-update:semver-minor, version-update:semver-patch]
+
+  # workflow 裡釘的 actions/checkout 之類的版本也會過期。
   # 這個 ecosystem 的 directory 必須是 /,它只看 .github/workflows。
   - package-ecosystem: github-actions
     directory: /

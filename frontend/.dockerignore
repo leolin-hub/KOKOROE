@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+Dockerfile
+.dockerignore
+
+# 第三方底片包裝照，只放在本機參考用，不能進 image（GHCR 上的 image 是公開的）
+public/film-stocks/
+
+# 本機的環境變數不該被打包進 image
+.env
+.env.*

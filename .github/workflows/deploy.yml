@@ -1,0 +1,168 @@
+name: Deploy
+
+# main 上的 CI 成功後，建 image、推到 GHCR，再 SSH 進 VM 換新版。
+#
+# 為什麼用 workflow_run 而不是直接 on: push：
+# 要等測試真的過了才部署。workflow_run 在 CI 跑完時觸發，下面再檢查它的結論是 success。
+#
+# 需要的設定（GitHub → Settings → Environments → production，詳見 deploy/README.md）：
+#   secrets: SSH_PRIVATE_KEY, SSH_KNOWN_HOSTS, CF_ACCESS_CLIENT_ID, CF_ACCESS_CLIENT_SECRET
+#   variables: SSH_HOST（例如 ssh.kokoroe.dpdns.org）, SSH_USER（例如 ubuntu）
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # 手動重新部署 main 目前的版本（例如改了 VM 上的 .env 之後）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# 部署一次只跑一個，而且不取消進行中的那個：部署做到一半被砍掉，VM 可能停在半新半舊的狀態。
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  # workflow_run 觸發時，要部署的是「CI 測過的那個 commit」，不是 workflow_run 當下 main 的最新 commit
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  REGISTRY: ghcr.io/leolin-hub
+
+jobs:
+  build:
+    name: build ${{ matrix.image }}
+    # 總開關：repo 的 Actions variable DEPLOY_ENABLED 設成 true 才部署（設定方式見 deploy/README.md）。
+    # VM 與 secrets 還沒設好之前，整個 workflow 會被跳過，而不是每次 merge 都在 SSH 那一步失敗亮紅燈。
+    # 另外只部署 push 到 main 的 CI 結果（PR 的 CI 也會觸發 workflow_run，要排除）。
+    if: >-
+      vars.DEPLOY_ENABLED == 'true' && (
+        (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+        (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+      )
+    # VM 是 Oracle Cloud 的 Ampere（arm64）。公開 repo 可以免費用 GitHub 的 arm64 runner，
+    # 原生建置，不用 QEMU 模擬（模擬跑 Maven 會慢上好幾倍）。
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - image: kokoroe-backend
+            context: backend
+          - image: kokoroe-web
+            context: frontend
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+
+      - uses: docker/setup-buildx-action@v4
+
+      # GITHUB_TOKEN 就夠推到同一個帳號底下的 GHCR，不需要另外建 PAT
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          platforms: linux/arm64
+          push: true
+          # SHA tag 用來回滾到任一版；latest 給 VM 上手動 docker compose up 時用
+          tags: |
+            ${{ env.REGISTRY }}/${{ matrix.image }}:${{ env.SHA }}
+            ${{ env.REGISTRY }}/${{ matrix.image }}:latest
+          # 讓 GHCR 把這個 package 連到 repo，在 repo 首頁看得到
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ env.SHA }}
+          # Maven 依賴與 npm ci 的層存在 GitHub Actions 快取，沒改 pom.xml / package-lock.json 就不用重抓
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    # Environment 可以設定「需要人工核准」與「只允許 main」，secrets 也只有這個 job 拿得到
+    environment: production
+    env:
+      CLOUDFLARED_VERSION: 2026.10.0
+      # 與 release 頁面公布的 SHA256 一致才安裝；升級版本時兩個值要一起改
+      CLOUDFLARED_SHA256: d33ff2d14475178d2012c2c56beba87389ac5ded27649519f198a7d3134a99db
+      # cloudflared access ssh 會自己讀這兩個環境變數，service token 不用寫進 ssh 設定檔或指令列
+      TUNNEL_SERVICE_TOKEN_ID: ${{ secrets.CF_ACCESS_CLIENT_ID }}
+      TUNNEL_SERVICE_TOKEN_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+          sparse-checkout: deploy
+
+      # VM 的 SSH 不對外開 port，只能經過 Cloudflare Tunnel；runner 上要有 cloudflared 當 SSH 的 ProxyCommand。
+      # 這個執行檔會拿到 service token，所以先驗 checksum，被竄改的檔案不會被執行。
+      - name: Install cloudflared
+        run: |
+          curl -fsSL -o cloudflared             "https://github.com/cloudflare/cloudflared/releases/download/${CLOUDFLARED_VERSION}/cloudflared-linux-amd64"
+          echo "${CLOUDFLARED_SHA256}  cloudflared" | sha256sum --check --strict
+          sudo install -m 755 cloudflared /usr/local/bin/cloudflared
+          cloudflared --version
+
+      # Access 的 SSH 應用程式只允許這組 service token，沒有人在 runner 上登入 email
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          SSH_HOST: ${{ vars.SSH_HOST }}
+          SSH_USER: ${{ vars.SSH_USER }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # 事先存好 VM 的 host key，不用 StrictHostKeyChecking=no，避免連到冒牌機器
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host vm
+            HostName ${SSH_HOST}
+            User ${SSH_USER}
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            ServerAliveInterval 30
+            ProxyCommand cloudflared access ssh --hostname %h
+          EOF
+          chmod 600 ~/.ssh/config
+
+      # compose 檔與腳本也跟著版本走；.env（機密）只存在 VM 上，不會被覆蓋。
+      # -p 保留檔案權限，腳本在 git 裡就是可執行的。
+      - name: Upload compose file and scripts
+        run: scp -p deploy/compose.prod.yml deploy/backup.sh deploy/restore-test.sh vm:kokoroe/
+
+      # 把這次的版本寫進 VM 的 .env：之後在 VM 上手動 docker compose up（例如改了設定、重開機後）
+      # 也會停在這個版本，不會默默換成 latest。
+      # --wait：等所有容器 healthy 才回傳，backend 起不來（例如 migration 失敗）這一步就會失敗。
+      # prune -a 清掉沒有容器在用的舊版 image，不然每次部署都留一份，硬碟遲早滿；
+      # 要回滾時再從 GHCR 用 SHA tag 拉回來就好。
+      # heredoc 沒加引號，$SHA 在 runner 這邊就展開成 commit SHA 再送過去。
+      - name: Pull images and restart
+        run: |
+          ssh vm bash -s <<EOF
+          set -euo pipefail
+          cd kokoroe
+          sed -i '/^IMAGE_TAG=/d' .env
+          echo "IMAGE_TAG=$SHA" >> .env
+          docker compose -f compose.prod.yml pull --quiet
+          docker compose -f compose.prod.yml up -d --remove-orphans --wait --wait-timeout 180
+          docker image prune -af
+          EOF
+
+      # 從 VM 本機經過 Caddy 打一次，確認整條路徑（Caddy → backend → postgres）是通的
+      - name: Smoke test
+        run: ssh vm 'curl -fsS --retry 5 --retry-delay 3 --retry-all-errors http://127.0.0.1:8080/actuator/health'
+
+      - name: Show logs on failure
+        if: failure()
+        run: ssh vm 'cd kokoroe && docker compose -f compose.prod.yml ps && docker compose -f compose.prod.yml logs --tail=80 backend'

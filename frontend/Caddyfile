@@ -1,0 +1,86 @@
+# kokoroe 前端容器的 Caddy 設定。
+#
+# 外面的請求路徑：瀏覽器 ─HTTPS→ Cloudflare（Access 驗證）─Tunnel→ VM 上的 cloudflared
+#                 ─HTTP→ 127.0.0.1:8080 → 這個容器的 :8080
+# 容器內聽 8080 而不是 80：1024 以下的 port 要特權，聽 8080 就能用一般使用者跑 Caddy。
+# TLS 在 Cloudflare 那一端就結束了，所以這裡只說 HTTP，也不需要 Caddy 自動申請憑證。
+# 前後端同網域，瀏覽器眼中 API 跟頁面同源，不需要 CORS（和 vite.config.ts 的開發 proxy 一致）。
+
+{
+	# 容器裡用不到 Caddy 的管理 API，關掉就少一個能改設定的入口
+	admin off
+	auto_https off
+
+	servers {
+		timeouts {
+			read_header 10s
+			# 上傳最大 41 MB；手機網路慢的話要給足時間
+			read_body 5m
+			# 下載原圖也算在 write 裡
+			write 5m
+			idle 2m
+		}
+	}
+}
+
+:8080 {
+	encode zstd gzip
+
+	header {
+		# 只載入自己網域的程式與資源。
+		# style-src 要 'unsafe-inline'：React 的 style={...} 與 SVG 上的行內樣式。
+		# img-src / font-src 的 data:：Vite 會把小檔案內嵌成 data URI。blob:：上傳前的本機預覽。
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	# 只有健康檢查轉給後端，其他 /actuator/* 一律不轉（後端本來也只開了 health，這裡是第二道）
+	handle /actuator/health {
+		reverse_proxy backend:8080
+	}
+	# 明確回 404，不然會落到下面的 SPA fallback 回 index.html，看起來像端點存在
+	handle /actuator/* {
+		respond 404
+	}
+
+	handle /api/* {
+		# CSRF 防護：別的網站在背景對這裡發請求時，瀏覽器會帶 Sec-Fetch-Site: cross-site。
+		# 後端還沒有 Spring Security，而 multipart 上傳屬於瀏覽器不需要 preflight 的「簡單請求」，
+		# 惡意網頁可以借用你的 Access 登入狀態上傳照片。自己的頁面發的是 same-origin，不受影響。
+		@crossSite header Sec-Fetch-Site cross-site
+		respond @crossSite 403
+
+		# 跟後端 spring.servlet.multipart.max-request-size 一致。
+		# 在這裡就擋下超大請求，不用讓後端先收完 41 MB 再拒絕。
+		request_body {
+			max_size 41MB
+		}
+		reverse_proxy backend:8080 {
+			transport http {
+				# 照片上傳後要產生縮圖，給後端足夠的處理時間
+				response_header_timeout 2m
+			}
+		}
+	}
+
+	# Vite 產生的 /assets/* 檔名帶內容雜湊，內容變了檔名就變，可以永久快取。
+	# 這裡不做 SPA fallback：舊版頁面要的 JS 已經不在時應該回 404，
+	# 不能回 index.html，否則瀏覽器會把一份 HTML 當成 JS 永久快取起來。
+	handle /assets/* {
+		root * /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		file_server
+	}
+
+	# SPA fallback：/film-rolls/7 這種網址在伺服器上沒有對應檔案，改回 index.html，
+	# 由 React Router 在瀏覽器決定要顯示哪一頁。每次都要重新驗證，部署新版才會立刻生效。
+	handle {
+		root * /srv
+		header Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}

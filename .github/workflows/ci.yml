@@ -77,3 +77,31 @@ jobs:
       # 所以型別錯誤在本機開發時完全沒有回饋,只有這裡會擋下來。
       - name: Type-check and build
         run: npm run build
+
+  # 部署設定的靜態檢查，不需要 VM 或任何機密，幾秒鐘就跑完。
+  # 不是 ruleset 的必過項目，但壞掉時 PR 上看得到紅燈。
+  deploy-config:
+    name: deploy-config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # compose 檔裡的 ${VAR:?} 是「漏設機密就拒絕啟動」的防線。
+      # 有人把它改成 ${VAR} 或 ${VAR:-預設值}，這一步就會發現。
+      - name: Compose refuses to start without secrets
+        run: |
+          if docker compose -f deploy/compose.prod.yml config --quiet 2>/dev/null; then
+            echo "::error file=deploy/compose.prod.yml::沒有 .env 也能通過，有變數少了 :? 保護"
+            exit 1
+          fi
+
+      # 反過來，所有變數都有值時 compose 檔必須是合法的；順便確認 .env.example 沒有漏列變數
+      - name: Compose is valid when every variable in .env.example is set
+        run: |
+          sed 's/=$/=ci-dummy/' deploy/.env.example > "$RUNNER_TEMP/ci.env"
+          docker compose --env-file "$RUNNER_TEMP/ci.env" -f deploy/compose.prod.yml config --quiet
+
+      - name: Caddyfile is valid
+        run: |
+          docker run --rm -v "$PWD/frontend/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile
