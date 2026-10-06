@@ -53,6 +53,23 @@ kokoroe:
     secret-key: ${STORAGE_SECRET_KEY:kokoroe-secret}
     create-bucket: ${STORAGE_CREATE_BUCKET:true}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        # 只開 health。env、configprops、heapdump 會把密碼與記憶體內容吐出來，絕對不開。
+        include: health
+      # 關掉 /actuator 這張端點目錄，外面不需要知道有哪些端點
+      discovery:
+        enabled: false
+  endpoint:
+    health:
+      # 外面只看得到 {"status":"UP"}，看不到資料庫版本、磁碟空間這些細節
+      show-details: never
+      # liveness / readiness 是給 Kubernetes 用的，這裡只有 docker compose，不需要
+      probes:
+        enabled: false
+
 server:
   port: 8080
   error:

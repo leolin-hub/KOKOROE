@@ -1,0 +1,7 @@
+# 只送 Dockerfile 用得到的東西進 build context。
+# target/ 特別要排除：本機編譯的 class 會蓋過 image 裡重新編譯的結果，而且動輒上百 MB。
+*
+!.mvn/
+!mvnw
+!pom.xml
+!src/main/

@@ -15,8 +15,8 @@ import java.net.URI;
  *
  * <p>加上 {@code @Validated}：值是空白時讓應用程式在啟動當下就失敗，
  * 而不是等到第一次上傳照片才冒出難懂的 SDK 錯誤。
- * 注意它擋不住「忘了設」：{@code application.yml} 每個值都有本機預設，
- * 正式環境漏設 {@code STORAGE_ENDPOINT} 會照樣啟動、連向 localhost。部署設定要逐一確認。
+ * 它擋不住「忘了設」，因為 {@code application.yml} 每個值都有本機預設；
+ * 這件事由 {@code application-prod.yml} 負責：正式環境改成沒有預設值的 placeholder，漏設就啟動失敗。
  *
  * @param endpoint           S3 API 位址，例如 {@code http://localhost:9000}、
  *                           {@code https://<account>.r2.cloudflarestorage.com}

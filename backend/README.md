@@ -30,6 +30,10 @@ RustFS 管理介面在 `http://localhost:9001`（帳密 `kokoroe` / `kokoroe-sec
 ./mvnw test
 ```
 
+健康檢查：`GET /actuator/health` 只回 `{"status":"UP"}`（DB 連不上時是 `503` 和 `DOWN`），其他 actuator 端點都沒有開放。
+
+正式環境用 `SPRING_PROFILES_ACTIVE=prod`（`application-prod.yml`）：資料庫與 R2 的設定一律從環境變數讀，沒有開發用的預設值；log 等級降到 info。部署方式見 [`deploy/README.md`](../deploy/README.md)。
+
 ---
 
 ## API 契約 v1
@@ -241,7 +245,7 @@ Hibernate 設為 `ddl-auto: validate`，只校驗不改結構。
 | 相機管理頁（`/cameras` 列表、新增、編輯與刪除） | ✅ 完成 |
 | 拆出 `Lens` 實體 | ⏳ 未開始 |
 | 沖掃成果（掃描圖檔）管理 | ✅ 完成：後端 API（V4 `photo` 表、RustFS / R2、縮圖與網頁版）、前端上傳、印樣、放大檢視，以及底片盒的底片條攤開動畫 |
-| 容器化與部署（CD） | ⏳ 未開始 |
+| 容器化與部署（CD） | 🚧 設定檔完成，等 VM 與 Cloudflare 設好後第一次上線：後端與前端（Caddy）image、`deploy/compose.prod.yml`、Cloudflare Tunnel + Access、R2、每日備份、`deploy.yml`（arm64 → GHCR → 經 Tunnel SSH 部署）。手冊見 [`deploy/README.md`](../deploy/README.md) |
 
 ### 前端進度
 

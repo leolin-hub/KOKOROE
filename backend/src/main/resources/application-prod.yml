@@ -1,0 +1,27 @@
+# 正式環境設定，用 SPRING_PROFILES_ACTIVE=prod 啟用（deploy/compose.prod.yml 會設）。
+#
+# 這裡覆寫 application.yml 裡「有本機預設值」的設定，改成沒有預設值的 ${VAR}。
+# 正式環境漏設任何一個環境變數，Spring 啟動時就會因為解析不了 placeholder 而失敗，
+# 不會默默用 kokoroe/kokoroe 這組開發帳密，或把照片傳去 localhost:9000。
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+
+kokoroe:
+  storage:
+    endpoint: ${STORAGE_ENDPOINT}
+    # Cloudflare R2 規定 region 填 auto
+    region: ${STORAGE_REGION:auto}
+    bucket: ${STORAGE_BUCKET}
+    access-key: ${STORAGE_ACCESS_KEY}
+    secret-key: ${STORAGE_SECRET_KEY}
+    # bucket 由人在 Cloudflare 後台建立；金鑰只有物件讀寫權限，也沒辦法建 bucket
+    create-bucket: false
+
+logging:
+  level:
+    # debug 會印出每次請求的細節，正式環境只留 info
+    com.kokoroe: info
